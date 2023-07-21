@@ -16,17 +16,23 @@
 #include "sdkconfig.h"
 #include "cdc_uart.h"
 #include "cdc_handle.h"
+#include "tusb_config.h"
 #include "main.h"
 
-static const char *TAG = "example";
+static const char *TAG = "main";
+
+static uint8_t const desc_hid_dap_report[] ={
+        TUD_HID_REPORT_DESC_GENERIC_INOUT(CFG_TUD_HID_EP_BUFSIZE)};
 
 static uint8_t const desc_configuration[] = {
     // Config number, interface count, string index, total length, attribute, power in mA
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, TUSB_DESC_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
     // Interface number, string index, EP Out & EP In address, EP size
-    TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 0, EDPT_MSC_OUT, EDPT_MSC_IN, TUD_OPT_HIGH_SPEED ? 512 : 64),
+    TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, STRID_MSC_INTERFACE, EDPT_MSC_OUT, EDPT_MSC_IN, TUD_OPT_HIGH_SPEED ? 512 : 64),
     // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
-    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, EDPT_CDC_NOTIFY, 8, EDPT_CDC_OUT, EDPT_CDC_IN, CFG_TUD_CDC_EP_BUFSIZE)};
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, STRID_CDC_INTERFACE, EDPT_CDC_NOTIFY, 8, EDPT_CDC_OUT, EDPT_CDC_IN, CFG_TUD_CDC_EP_BUFSIZE),
+    // Interface number, string index, protocol, report descriptor len, EP In & Out address, size & polling interval
+    TUD_HID_INOUT_DESCRIPTOR(ITF_NUM_HID, STRID_HID_INTERFACE, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_dap_report), EDPT_HID_OUT, EDPT_HID_IN, CFG_TUD_HID_EP_BUFSIZE, 1)};
 
 static tusb_desc_device_t descriptor_config = {
     .bLength = sizeof(descriptor_config),
@@ -51,6 +57,7 @@ static char const *string_desc_arr[] = {
     CONFIG_TINYUSB_DESC_SERIAL_STRING,       // 3. SN
     CONFIG_TINYUSB_DESC_CDC_STRING,          // 4. CDC
     CONFIG_TINYUSB_DESC_MSC_STRING,          // 5. MSC
+    CONFIG_TINYUSB_DESC_HID_STRING,          // 6. HID
 };
 
 #define BASE_PATH "/data" // base path to mount the partition
@@ -88,6 +95,38 @@ static void _mount(void)
     }
     return;
 }
+
+uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
+{
+    (void)instance;
+    return desc_hid_dap_report;
+}
+
+static uint8_t s_tx_buf[CFG_TUD_HID_EP_BUFSIZE];
+
+uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
+{
+    // TODO not Implemented
+    (void)instance;
+    (void)report_id;
+    (void)report_type;
+    (void)buffer;
+    (void)reqlen;
+
+    return 0;
+}
+
+void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
+{
+    // This doesn't use multiple report and report ID
+    (void)instance;
+    (void)report_id;
+    (void)report_type;
+
+    //   DAP_ProcessCommand(buffer, s_tx_buf);
+    tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
+}
+
 
 static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
 {

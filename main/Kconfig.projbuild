@@ -1,0 +1,11 @@
+menu "ESP32 DAPLink Configuration"
+
+if TINYUSB_HID_COUNT > 0
+    config TINYUSB_DESC_HID_STRING
+        string "HID Device Name"
+        default "DAP HID Device"
+        help
+            HID device name
+endif
+
+endmenu
