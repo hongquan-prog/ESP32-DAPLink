@@ -17,12 +17,14 @@
 #include "cdc_uart.h"
 #include "cdc_handle.h"
 #include "tusb_config.h"
+#include "DAP_config.h"
+#include "DAP.h"
 #include "main.h"
 
 static const char *TAG = "main";
 
-static uint8_t const desc_hid_dap_report[] ={
-        TUD_HID_REPORT_DESC_GENERIC_INOUT(CFG_TUD_HID_EP_BUFSIZE)};
+static uint8_t const desc_hid_dap_report[] = {
+    TUD_HID_REPORT_DESC_GENERIC_INOUT(CFG_TUD_HID_EP_BUFSIZE)};
 
 static uint8_t const desc_configuration[] = {
     // Config number, interface count, string index, total length, attribute, power in mA
@@ -99,10 +101,9 @@ static void _mount(void)
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
 {
     (void)instance;
+    printf("tud_hid_descriptor_report_cb\n");
     return desc_hid_dap_report;
 }
-
-static uint8_t s_tx_buf[CFG_TUD_HID_EP_BUFSIZE];
 
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
 {
@@ -112,21 +113,22 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     (void)report_type;
     (void)buffer;
     (void)reqlen;
-
+    printf("tud_hid_get_report_cb\n");
     return 0;
 }
 
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
 {
+    static uint8_t s_tx_buf[CFG_TUD_HID_EP_BUFSIZE];
     // This doesn't use multiple report and report ID
     (void)instance;
     (void)report_id;
     (void)report_type;
 
-    //   DAP_ProcessCommand(buffer, s_tx_buf);
+    printf("DAP_ProcessCommand: %d\n", s_tx_buf[0]);
+    DAP_ProcessCommand(buffer, s_tx_buf);
     tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
 }
-
 
 static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
 {
@@ -144,6 +146,8 @@ static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
 
 void app_main(void)
 {
+    DAP_Setup();
+
     ESP_LOGI(TAG, "USB initialization");
 
     static wl_handle_t wl_handle = WL_INVALID_HANDLE;
