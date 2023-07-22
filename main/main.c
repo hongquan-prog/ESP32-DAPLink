@@ -55,38 +55,35 @@ static tusb_desc_device_t descriptor_config = {
 static char const *string_desc_arr[] = {
     (const char[]){0x09, 0x04},              // 0: is supported language is English (0x0409)
     CONFIG_TINYUSB_DESC_MANUFACTURER_STRING, // 1: Manufacturer
-    CONFIG_TINYUSB_DESC_PRODUCT_STRING,      // 2: Product
+    CONFIG_TINYUSB_DESC_PRODUCT_STRING,      // 2:  The value of this macro _must_ include the string "CMSIS-DAP". Otherwise debuggers will not recognizethe USB device 
     CONFIG_TINYUSB_DESC_SERIAL_STRING,       // 3. SN
     CONFIG_TINYUSB_DESC_CDC_STRING,          // 4. CDC
     CONFIG_TINYUSB_DESC_MSC_STRING,          // 5. MSC
     CONFIG_TINYUSB_DESC_HID_STRING,          // 6. HID
 };
 
-#define BASE_PATH "/data" // base path to mount the partition
 
-#define PROMPT_STR CONFIG_IDF_TARGET
-
-// mount the partition and show all the files in BASE_PATH
+// mount the partition and show all the files in CONFIG_TINYUSB_MSC_MOUNT_PATH
 static void _mount(void)
 {
     ESP_LOGI(TAG, "Mount storage...");
-    ESP_ERROR_CHECK(tinyusb_msc_storage_mount(BASE_PATH));
+    ESP_ERROR_CHECK(tinyusb_msc_storage_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH));
 
     // List all the files in this directory
     ESP_LOGI(TAG, "\nls command output:");
     struct dirent *d;
-    DIR *dh = opendir(BASE_PATH);
+    DIR *dh = opendir(CONFIG_TINYUSB_MSC_MOUNT_PATH);
     if (!dh)
     {
         if (errno == ENOENT)
         {
             // If the directory is not found
-            ESP_LOGE(TAG, "Directory doesn't exist %s", BASE_PATH);
+            ESP_LOGE(TAG, "Directory doesn't exist %s", CONFIG_TINYUSB_MSC_MOUNT_PATH);
         }
         else
         {
             // If the directory is not readable then throw error and exit
-            ESP_LOGE(TAG, "Unable to read directory %s", BASE_PATH);
+            ESP_LOGE(TAG, "Unable to read directory %s", CONFIG_TINYUSB_MSC_MOUNT_PATH);
         }
         return;
     }
@@ -101,7 +98,6 @@ static void _mount(void)
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
 {
     (void)instance;
-    printf("tud_hid_descriptor_report_cb\n");
     return desc_hid_dap_report;
 }
 
@@ -113,7 +109,6 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     (void)report_type;
     (void)buffer;
     (void)reqlen;
-    printf("tud_hid_get_report_cb\n");
     return 0;
 }
 
@@ -125,7 +120,6 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     (void)report_id;
     (void)report_type;
 
-    printf("DAP_ProcessCommand: %d\n", s_tx_buf[0]);
     DAP_ProcessCommand(buffer, s_tx_buf);
     tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
 }

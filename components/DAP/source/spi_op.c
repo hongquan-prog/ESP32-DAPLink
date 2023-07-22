@@ -172,6 +172,8 @@ __FORCEINLINE void DAP_SPI_Send_Header(const uint8_t packetHeaderData, uint8_t *
 
     dataBuf = DAP_SPI.data_buf[0];
     *ack = (dataBuf >> 1) & 0b111;
+
+    printf("ack: %d\n", *ack);
 }
 
 
@@ -229,6 +231,11 @@ __FORCEINLINE void DAP_SPI_Write_Data(uint32_t data, uint8_t parity)
     DAP_SPI.cmd.usr = 1;
     // Wait for sending to complete
     while (DAP_SPI.cmd.usr) continue;
+
+    spi_transaction_t trans;
+
+
+    spi_device_transmit
 }
 
 /**

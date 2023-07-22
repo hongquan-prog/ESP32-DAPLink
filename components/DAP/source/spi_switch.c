@@ -58,12 +58,18 @@ spi_device_interface_config_t devcfg = {
  */
 void DAP_SPI_Init()
 {
+    static int initial = 0;
     // In esp32, the driving of GPIO should be stopped,
     // otherwise there will be issue in the spi
     GPIO.out_w1tc = (0x1 << PIN_SWDIO_MOSI);
     GPIO.out_w1tc = (0x1 << PIN_SWCLK);
-    ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_DISABLED));
-    ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &spi));
+
+    if (!initial)
+    {
+        initial = 1;
+        ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_DISABLED));
+        ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &spi));
+    }
 }
 
 /**

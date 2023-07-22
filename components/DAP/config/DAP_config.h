@@ -162,12 +162,8 @@ This information includes:
  */
 __STATIC_INLINE uint8_t DAP_GetVendorString(char *str)
 {
-  ////TODO: fill this
-  // In fact, Keil can get the corresponding information through USB
-  // without filling in this information.
-  // (void)str;
-  strcpy(str, "windowsair");
-  return (sizeof("windowsair"));
+  strcpy(str, CONFIG_TINYUSB_DESC_MANUFACTURER_STRING);
+  return (sizeof(CONFIG_TINYUSB_DESC_MANUFACTURER_STRING));
 }
 
 /**
@@ -178,7 +174,6 @@ __STATIC_INLINE uint8_t DAP_GetVendorString(char *str)
  */
 __STATIC_INLINE uint8_t DAP_GetProductString(char *str)
 {
-  //(void)str;
   strcpy(str, "CMSIS-DAP v2");
   return (sizeof("CMSIS-DAP v2"));
 }
@@ -191,8 +186,8 @@ __STATIC_INLINE uint8_t DAP_GetProductString(char *str)
  */
 __STATIC_INLINE uint8_t DAP_GetSerNumString(char *str)
 {
-  strcpy(str, "1234");
-  return (sizeof("1234"));
+  strcpy(str, CONFIG_TINYUSB_DESC_SERIAL_STRING);
+  return (sizeof(CONFIG_TINYUSB_DESC_SERIAL_STRING));
 }
 
 ///@}
