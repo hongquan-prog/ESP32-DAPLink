@@ -310,7 +310,6 @@ static inline void PORT_OFF(void)
 */
 static inline uint32_t PIN_SWCLK_TCK_IN(void)
 {
-	// return (uint32_t)READ_PERI_REG(GPIO_PIN10_REG)? 1 : 0;
 	return (uint32_t)gpio_get_level(PIN_SWCLK) ? 1 : 0;
 }
 
@@ -337,7 +336,7 @@ static inline void PIN_SWCLK_TCK_CLR(void)
 */
 static inline uint32_t PIN_SWDIO_TMS_IN(void)
 {
-	return (uint32_t)READ_PERI_REG(GPIO_PIN9_REG) ? 1 : 0;
+	return gpio_get_level(PIN_SWDIO);
 }
 
 /** SWDIO/TMS I/O pin: Set Output to High.
@@ -363,12 +362,7 @@ static inline void PIN_SWDIO_TMS_CLR(void)
 
 static inline uint32_t PIN_SWDIO_IN(void)
 {
-	// return (uint32_t)READ_PERI_REG(GPIO_FUNC9_IN_SEL_CFG_REG)? 1 : 0;
-
-	return (uint32_t)gpio_get_level(PIN_SWDIO) ? 1 : 0;
-
-	// return (uint32_t)GPIO_REG_READ(GPIO_PIN_ADDR(14))? 1 : 0;
-
+	return (uint32_t)gpio_get_level(PIN_SWDIO);
 }
 
 /** SWDIO I/O pin: Set Output (used in SWD mode only).
@@ -397,11 +391,7 @@ called prior \ref PIN_SWDIO_OUT function calls.
 */
 static inline void PIN_SWDIO_OUT_ENABLE(void)
 {
-
-	// gpio_pad_select_gpio(PIN_SWDIO);
 	gpio_set_direction(PIN_SWDIO, GPIO_MODE_OUTPUT);
-	// gpio_output_enable(PIN_SWDIO);
-	// WRITE_PERI_REG(GPIO_OUT_W1TS_REG, (0x1 << PIN_SWDIO));
 }
 
 /** SWDIO I/O pin: Switch to Input mode (used in SWD mode only).
@@ -410,11 +400,7 @@ called prior \ref PIN_SWDIO_IN function calls.
 */
 static inline void PIN_SWDIO_OUT_DISABLE(void)
 {
-
-	// gpio_pad_select_gpio(PIN_SWDIO);
 	gpio_set_direction(PIN_SWDIO, GPIO_MODE_INPUT);
-	// gpio_output_enable(PIN_SWDIO);
-	// WRITE_PERI_REG(GPIO_OUT_W1TS_REG, (0x1 << PIN_SWDIO));
 }
 
 // TDI Pin I/O ---------------------------------------------
@@ -424,8 +410,7 @@ static inline void PIN_SWDIO_OUT_DISABLE(void)
 */
 static inline uint32_t PIN_TDI_IN(void)
 {
-	// return (uint32_t)READ_PERI_REG(GPIO_IN_REG&(0x1 << PIN_TDI))? 1 : 0;
-	return (uint32_t)gpio_get_level(PIN_TDI) ? 1 : 0;
+	return (uint32_t)gpio_get_level(PIN_TDI);
 }
 
 /** TDI I/O pin: Set Output.
@@ -451,9 +436,7 @@ static inline void PIN_TDI_OUT(uint32_t bit)
 */
 static inline uint32_t PIN_TDO_IN(void)
 {
-	return (uint32_t)gpio_get_level(PIN_TDO) ? 1 : 0;
-	// return (uint32_t)READ_PERI_REG(GPIO_IN_REG&(0x1 << PIN_TDO))? 1 : 0;
-	//   return (uint32_t)(JTAG_TDO_GPIO_Port->IDR & JTAG_TDO_Pin ? 1:0);
+	return (uint32_t)gpio_get_level(PIN_TDO);
 }
 
 // nTRST Pin I/O -------------------------------------------
@@ -473,8 +456,7 @@ static inline uint32_t PIN_nTRST_IN(void)
 */
 static inline void PIN_nTRST_OUT(uint32_t bit)
 {
-	(void)bit;
-	; // Not available
+	(void)bit; // Not available
 }
 
 // nRESET Pin I/O------------------------------------------
@@ -484,8 +466,7 @@ static inline void PIN_nTRST_OUT(uint32_t bit)
 */
 static inline uint32_t PIN_nRESET_IN(void)
 {
-	return (0U); //
-				 //   return (uint32_t)(JTAG_nRESET_GPIO_Port->ODR & JTAG_nRESET_Pin ? 1:0);
+	return (0U); // Not available
 }
 
 /** nRESET I/O pin: Set Output.
