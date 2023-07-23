@@ -11,8 +11,8 @@
  * @file    SWD_flash.c
  * @brief   通过SWD协议对MCU的FLASH编程
  */
-#include "SWD_host.h"
-#include "SWD_flash.h"
+#include "swd_host.h"
+#include "swd_flash.h"
 
 uint32_t Flash_Page_Size = 1024;
 extern uint8_t Select_algo;

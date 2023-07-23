@@ -42,7 +42,7 @@ This information includes:
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "SWD_host.h"
+#include "swd_host.h"
 
 #if defined(__GNUC__) && !defined(__STATIC_FORCEINLINE)
 #define __STATIC_FORCEINLINE static inline __attribute__((always_inline))

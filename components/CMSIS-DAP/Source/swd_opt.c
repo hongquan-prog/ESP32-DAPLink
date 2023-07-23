@@ -1,9 +1,5 @@
-/**
- * @file    SWD_opt.c
- * @brief   通过SWD协议对MCU的FLASH编程
- */
-#include "SWD_host.h"
-#include "SWD_opt.h"
+#include "swd_host.h"
+#include "swd_opt.h"
 uint8_t Select_algo = 1;
 
 error_tt target_opt_init(void)

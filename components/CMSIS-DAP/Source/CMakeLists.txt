@@ -4,8 +4,8 @@ set(COMPONENT_SRCS  "DAP.c"
                     "DAP_vendor.c"
                     "error.c" 
                     "JTAG_DP.c" 
-                    "SWD_flash.c" 
-                    "SWD_host.c"
+                    "swd_flash.c" 
+                    "swd_host.c"
 )
 set(COMPONENT_INCLUDEDIRS . ${PROJECT_DIR}/components/CMSIS-DAP/Include
 . ${PROJECT_DIR}/components/CMSIS-DAP/cmsis-core)
