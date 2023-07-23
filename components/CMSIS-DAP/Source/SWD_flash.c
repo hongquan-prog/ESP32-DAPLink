@@ -13,7 +13,7 @@
  */
 #include "SWD_host.h"
 #include "SWD_flash.h"
-//#include "../algo/STM32F10x_OPT.c"
+
 uint32_t Flash_Page_Size = 1024;
 extern uint8_t Select_algo;
 error_tt target_flash_init(uint32_t flash_start)

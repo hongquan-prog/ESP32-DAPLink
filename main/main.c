@@ -7,12 +7,10 @@
 #include <stdint.h>
 #include "esp_log.h"
 #include <errno.h>
-#include <dirent.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "tinyusb.h"
 #include "tusb_cdc_acm.h"
-#include "tusb_msc_storage.h"
 #include "sdkconfig.h"
 #include "cdc_uart.h"
 #include "cdc_handle.h"
@@ -20,6 +18,7 @@
 #include "DAP_config.h"
 #include "DAP.h"
 #include "main.h"
+#include "msc_disk.h"
 
 static const char *TAG = "main";
 
@@ -55,45 +54,12 @@ static tusb_desc_device_t descriptor_config = {
 static char const *string_desc_arr[] = {
     (const char[]){0x09, 0x04},              // 0: is supported language is English (0x0409)
     CONFIG_TINYUSB_DESC_MANUFACTURER_STRING, // 1: Manufacturer
-    CONFIG_TINYUSB_DESC_PRODUCT_STRING,      // 2:  The value of this macro _must_ include the string "CMSIS-DAP". Otherwise debuggers will not recognizethe USB device 
+    CONFIG_TINYUSB_DESC_PRODUCT_STRING,      // 2:  The value of this macro _must_ include the string "CMSIS-DAP". Otherwise debuggers will not recognizethe USB device
     CONFIG_TINYUSB_DESC_SERIAL_STRING,       // 3. SN
     CONFIG_TINYUSB_DESC_CDC_STRING,          // 4. CDC
     CONFIG_TINYUSB_DESC_MSC_STRING,          // 5. MSC
     CONFIG_TINYUSB_DESC_HID_STRING,          // 6. HID
 };
-
-
-// mount the partition and show all the files in CONFIG_TINYUSB_MSC_MOUNT_PATH
-static void _mount(void)
-{
-    ESP_LOGI(TAG, "Mount storage...");
-    ESP_ERROR_CHECK(tinyusb_msc_storage_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH));
-
-    // List all the files in this directory
-    ESP_LOGI(TAG, "\nls command output:");
-    struct dirent *d;
-    DIR *dh = opendir(CONFIG_TINYUSB_MSC_MOUNT_PATH);
-    if (!dh)
-    {
-        if (errno == ENOENT)
-        {
-            // If the directory is not found
-            ESP_LOGE(TAG, "Directory doesn't exist %s", CONFIG_TINYUSB_MSC_MOUNT_PATH);
-        }
-        else
-        {
-            // If the directory is not readable then throw error and exit
-            ESP_LOGE(TAG, "Unable to read directory %s", CONFIG_TINYUSB_MSC_MOUNT_PATH);
-        }
-        return;
-    }
-    // While the next entry is not readable we will print directory files
-    while ((d = readdir(dh)) != NULL)
-    {
-        printf("%s\n", d->d_name);
-    }
-    return;
-}
 
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
 {
@@ -124,36 +90,8 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
 }
 
-static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
-{
-    ESP_LOGI(TAG, "Initializing wear levelling");
-
-    const esp_partition_t *data_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, NULL);
-    if (data_partition == NULL)
-    {
-        ESP_LOGE(TAG, "Failed to find FATFS partition. Check the partition table.");
-        return ESP_ERR_NOT_FOUND;
-    }
-
-    return wl_mount(data_partition, wl_handle);
-}
-
 void app_main(void)
 {
-    DAP_Setup();
-
-    ESP_LOGI(TAG, "USB initialization");
-
-    static wl_handle_t wl_handle = WL_INVALID_HANDLE;
-    ESP_ERROR_CHECK(storage_init_spiflash(&wl_handle));
-
-    const tinyusb_msc_spiflash_config_t config_spi = {.wl_handle = wl_handle};
-    ESP_ERROR_CHECK(tinyusb_msc_storage_init_spiflash(&config_spi));
-
-    // mounted in the app by default
-    _mount();
-
-    ESP_LOGI(TAG, "USB MSC initialization");
     const tinyusb_config_t tusb_cfg = {
         .device_descriptor = &descriptor_config,
         .string_descriptor = string_desc_arr,
@@ -161,7 +99,6 @@ void app_main(void)
         .external_phy = false,
         .configuration_descriptor = desc_configuration,
     };
-    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
 
     tinyusb_config_cdcacm_t acm_cfg = {
         .usb_dev = TINYUSB_USBDEV_0,
@@ -172,10 +109,12 @@ void app_main(void)
         .callback_line_state_changed = NULL,
         .callback_line_coding_changed = cdc_line_codinig_changed_callback};
 
+    DAP_Setup();
+    ESP_LOGI(TAG, "USB initialization");
+    msc_dick_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH);
+    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_ERROR_CHECK(tusb_cdc_acm_init(&acm_cfg));
-
     cdc_uart_init(UART_NUM_1, GPIO_NUM_4, GPIO_NUM_5, 115200);
     cdc_uart_register_rx_callback(cdc_uart_rx_callback, (void *)TINYUSB_CDC_ACM_0);
-
     ESP_LOGI(TAG, "USB initialization DONE");
 }
