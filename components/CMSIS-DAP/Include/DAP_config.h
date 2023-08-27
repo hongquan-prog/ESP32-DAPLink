@@ -73,7 +73,7 @@ This information includes:
 /// Indicate that JTAG communication mode is available at the Debug Port.
 /// This information is returned by the command \ref DAP_Info as part of <b>Capabilities</b>.
 #ifndef DAP_JTAG
-#define DAP_JTAG                1               ///< JTAG Mode: 1 = available, 0 = not available.
+#define DAP_JTAG                0               ///< JTAG Mode: 1 = available, 0 = not available.
 #endif
 
 /// Configure maximum number of JTAG devices on the scan chain connected to the Debug Access Port.
@@ -198,9 +198,6 @@ of the same I/O port. The following SWDIO I/O Pin functions are provided:
 #define PIN_nRESET 10
 #define PIN_LED_CONNECTED 17
 #define PIN_LED_RUNNING 18
-#define PIN_TDO 11
-#define PIN_TDI 12
-#define PIN_nTRST 13
 
 /** Setup JTAG I/O pins: TCK, TMS, TDI, TDO, nTRST, and nRESET.
 Configures the DAP Hardware I/O pins for JTAG mode:
@@ -209,24 +206,6 @@ Configures the DAP Hardware I/O pins for JTAG mode:
 */
 __STATIC_INLINE void PORT_JTAG_SETUP(void)
 {
-	gpio_pad_select_gpio(PIN_SWCLK);
-	gpio_set_direction(PIN_SWCLK, GPIO_MODE_INPUT_OUTPUT);
-	gpio_pad_select_gpio(PIN_SWDIO);
-	gpio_set_direction(PIN_SWDIO, GPIO_MODE_INPUT_OUTPUT);
-
-	gpio_set_level(PIN_SWCLK, 1);
-	gpio_set_level(PIN_SWDIO, 1);
-
-	gpio_pad_select_gpio(PIN_TDI);
-	gpio_set_direction(PIN_TDI, GPIO_MODE_INPUT_OUTPUT);
-	gpio_pad_select_gpio(PIN_TDO);
-	gpio_set_direction(PIN_TDI, GPIO_MODE_INPUT_OUTPUT);
-	gpio_pad_select_gpio(PIN_nRESET);
-	gpio_set_direction(PIN_nRESET, GPIO_MODE_INPUT_OUTPUT);
-
-	gpio_set_level(PIN_TDI, 1);
-	gpio_set_level(PIN_TDO, 1);
-	gpio_set_level(PIN_nRESET, 1);
 }
 
 /** Setup SWD I/O pins: SWCLK, SWDIO, and nRESET.
@@ -240,19 +219,11 @@ __STATIC_INLINE void PORT_SWD_SETUP(void)
 	gpio_set_direction(PIN_SWCLK, GPIO_MODE_INPUT_OUTPUT);
 	gpio_pad_select_gpio(PIN_SWDIO);
 	gpio_set_direction(PIN_SWDIO, GPIO_MODE_INPUT_OUTPUT);
-
-	WRITE_PERI_REG(GPIO_OUT_W1TS_REG, (0x1 << PIN_SWCLK));
-	WRITE_PERI_REG(GPIO_OUT_W1TS_REG, (0x1 << PIN_SWDIO));
-
-	gpio_pad_select_gpio(PIN_TDI);
-	gpio_set_direction(PIN_TDI, GPIO_MODE_INPUT_OUTPUT);
-	gpio_pad_select_gpio(PIN_TDO);
-	gpio_set_direction(PIN_TDI, GPIO_MODE_INPUT_OUTPUT);
 	gpio_pad_select_gpio(PIN_nRESET);
 	gpio_set_direction(PIN_nRESET, GPIO_MODE_INPUT_OUTPUT);
 
-	gpio_set_level(PIN_TDI, 1);
-	gpio_set_level(PIN_TDO, 1);
+	gpio_set_level(PIN_SWCLK, 1);
+	gpio_set_level(PIN_SWDIO, 1);
 	gpio_set_level(PIN_nRESET, 1);
 }
 
@@ -373,7 +344,7 @@ __STATIC_FORCEINLINE void     PIN_SWDIO_OUT_DISABLE(void)
 */
 __STATIC_FORCEINLINE uint32_t PIN_TDI_IN(void)
 {
-	return (uint32_t)gpio_get_level(PIN_TDI);
+	return (0);   // Not available
 }
 
 /** TDI I/O pin: Set Output.
@@ -381,14 +352,7 @@ __STATIC_FORCEINLINE uint32_t PIN_TDI_IN(void)
 */
 __STATIC_FORCEINLINE void     PIN_TDI_OUT(uint32_t bit)
 {
-	if ((bit & 1U) == 1)
-	{
-		WRITE_PERI_REG(GPIO_OUT_W1TS_REG, (0x1 << PIN_TDI));
-	}
-	else
-	{
-		WRITE_PERI_REG(GPIO_OUT_W1TC_REG, (0x1 << PIN_TDI));
-	}
+	(void)bit;   // Not available
 }
 
 
@@ -399,7 +363,7 @@ __STATIC_FORCEINLINE void     PIN_TDI_OUT(uint32_t bit)
 */
 __STATIC_FORCEINLINE uint32_t PIN_TDO_IN(void)
 {
-	return (uint32_t)gpio_get_level(PIN_TDO);
+	return (0);   // Not available
 }
 
 
@@ -430,7 +394,7 @@ __STATIC_FORCEINLINE void     PIN_nTRST_OUT(uint32_t bit)
 */
 __STATIC_FORCEINLINE uint32_t PIN_nRESET_IN(void)
 {
-	return (0U); // Not available
+	return (uint32_t)gpio_get_level(PIN_nRESET);
 }
 
 /** nRESET I/O pin: Set Output.
@@ -490,7 +454,14 @@ __STATIC_INLINE void LED_CONNECTED_OUT(uint32_t bit)
 */
 __STATIC_INLINE void LED_RUNNING_OUT(uint32_t bit)
 {
-    ;             // Not available
+    if (bit)
+	{
+		WRITE_PERI_REG(GPIO_OUT_W1TS_REG, (0x1 << PIN_LED_RUNNING));
+	}
+	else
+	{
+		WRITE_PERI_REG(GPIO_OUT_W1TC_REG, (0x1 << PIN_LED_RUNNING));
+	}
 }
 
 ///@}
@@ -542,12 +513,10 @@ __STATIC_INLINE void DAP_SETUP(void)
 	gpio_set_direction(PIN_SWCLK, GPIO_MODE_INPUT_OUTPUT);
 	gpio_set_direction(PIN_SWDIO, GPIO_MODE_INPUT_OUTPUT);	//
 	gpio_set_direction(PIN_nRESET, GPIO_MODE_INPUT_OUTPUT); //
-	gpio_set_direction(PIN_TDI, GPIO_MODE_INPUT_OUTPUT);
-	gpio_set_direction(PIN_TDO, GPIO_MODE_INPUT_OUTPUT);
 	// Configure: LED as output (turned off)
-	gpio_set_direction(PIN_LED_CONNECTED, GPIO_MODE_DEF_OUTPUT);
+	gpio_set_direction(PIN_LED_CONNECTED, GPIO_MODE_OUTPUT);
 	LED_CONNECTED_OUT(0);
-	gpio_set_direction(PIN_LED_RUNNING, GPIO_MODE_DEF_OUTPUT);
+	gpio_set_direction(PIN_LED_RUNNING, GPIO_MODE_OUTPUT);
 	LED_RUNNING_OUT(0);
 }
 

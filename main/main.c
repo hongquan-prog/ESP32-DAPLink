@@ -114,7 +114,7 @@ void app_main(void)
     msc_dick_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH);
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_ERROR_CHECK(tusb_cdc_acm_init(&acm_cfg));
-    cdc_uart_init(UART_NUM_1, GPIO_NUM_4, GPIO_NUM_5, 115200);
+    cdc_uart_init(UART_NUM_1, GPIO_NUM_13, GPIO_NUM_14, 115200);
     cdc_uart_register_rx_callback(cdc_uart_rx_callback, (void *)TINYUSB_CDC_ACM_0);
     ESP_LOGI(TAG, "USB initialization DONE");
 }

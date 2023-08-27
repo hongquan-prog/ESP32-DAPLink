@@ -1,11 +1,24 @@
 menu "ESP32 DAPLink Configuration"
 
-if TINYUSB_HID_COUNT > 0
-    config TINYUSB_DESC_HID_STRING
-        string "HID Device Name"
-        default "DAP HID Device"
-        help
-            HID device name
-endif
+config TINYUSB_DESC_HID_STRING
+    string "HID Device Name"
+    default "DAP HID Device"
+    help
+        HID device name
+
+choice MSC_STORAGE_MEDIA
+    prompt "Storage Media Used"
+    default MSC_STORAGE_MEDIA_SPIFLASH
+    help
+        Select the storage media that is exposed to USB host.
+
+    config MSC_STORAGE_MEDIA_SPIFLASH
+        bool "SPI FLASH"
+
+    config MSC_STORAGE_MEDIA_SDMMCCARD
+        bool "SDMMC CARD"
+        depends on IDF_TARGET_ESP32S3
+        depends on TINYUSB_MSC_ENABLED
+endchoice
 
 endmenu
