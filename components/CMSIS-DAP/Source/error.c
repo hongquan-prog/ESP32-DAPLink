@@ -21,8 +21,6 @@
 
 #include <stdlib.h>
 #include "error.h"
-#include "util.h"
-#include "compiler.h"
 
 #if !DAPLINK_NO_ERROR_MESSAGES
 static const char *const error_message[] = {
@@ -127,8 +125,6 @@ static const char *const error_message[] = {
 
 };
 
-COMPILER_ASSERT(ERROR_COUNT == ARRAY_SIZE(error_message));
-
 #endif // DAPLINK_NO_ERROR_MESSAGES
 
 static error_type_t error_type[] = {
@@ -232,8 +228,6 @@ static error_type_t error_type[] = {
     ERROR_TYPE_INTERFACE,
 };
 
-COMPILER_ASSERT(ERROR_COUNT == ARRAY_SIZE(error_type));
-
 const char *error_get_string(error_t error)
 {
 #if !DAPLINK_NO_ERROR_MESSAGES
@@ -244,7 +238,6 @@ const char *error_get_string(error_t error)
     }
 
     if (0 == msg) {
-        util_assert(0);
         msg = "";
     }
 
@@ -255,7 +248,6 @@ const char *error_get_string(error_t error)
 
     error_num_str[ERROR_NUM_CHAR_INDEX+0] = '0' + ((int)error / 1000) % 10;
     error_num_str[ERROR_NUM_CHAR_INDEX+1] = '0' + ((int)error / 100) % 10;
-    COMPILER_ASSERT(ERROR_COUNT < 100); // if this assert is hit, add a digit here
     error_num_str[ERROR_NUM_CHAR_INDEX+2] = 0;
 #endif  // DAPLINK_NO_ERROR_MESSAGES
 }

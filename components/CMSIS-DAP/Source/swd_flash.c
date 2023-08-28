@@ -16,7 +16,7 @@
 
 uint32_t Flash_Page_Size = 1024;
 extern uint8_t Select_algo;
-error_tt target_flash_init(uint32_t flash_start)
+error_t target_flash_init(uint32_t flash_start)
 {
 	if (0 == swd_set_target_state_hw(RESET_PROGRAM))
 	{
@@ -37,7 +37,7 @@ error_tt target_flash_init(uint32_t flash_start)
 	return ERROR_SUCCESS;
 }
 
-error_tt target_flash_uninit(void)
+error_t target_flash_uninit(void)
 {
 	swd_set_target_state_hw(RESET_RUN);
 
@@ -45,7 +45,7 @@ error_tt target_flash_uninit(void)
 	return ERROR_SUCCESS;
 }
 
-error_tt target_flash_program_page(uint32_t addr, const uint8_t *buf, uint32_t size)
+error_t target_flash_program_page(uint32_t addr, const uint8_t *buf, uint32_t size)
 {
 	while (size > 0)
 	{
@@ -76,7 +76,7 @@ error_tt target_flash_program_page(uint32_t addr, const uint8_t *buf, uint32_t s
 	return ERROR_SUCCESS;
 }
 
-error_tt target_flash_erase_sector(uint32_t addr)
+error_t target_flash_erase_sector(uint32_t addr)
 {
 	if (0 == swd_flash_syscall_exec(&STM32_ALGO[Select_algo].algo.sys_call_s, STM32_ALGO[Select_algo].algo.erase_sector, addr, 0, 0, 0))
 	{
@@ -86,9 +86,9 @@ error_tt target_flash_erase_sector(uint32_t addr)
 	return ERROR_SUCCESS;
 }
 
-error_tt target_flash_erase_chip(void)
+error_t target_flash_erase_chip(void)
 {
-	error_tt status = ERROR_SUCCESS;
+	error_t status = ERROR_SUCCESS;
 
 	if (0 == swd_flash_syscall_exec(&STM32_ALGO[Select_algo].algo.sys_call_s, STM32_ALGO[Select_algo].algo.erase_chip, 0, 0, 0, 0))
 	{
