@@ -1,4 +1,4 @@
-set(COMPONENT_ADD_INCLUDEDIRS "Include/")
+set(COMPONENT_ADD_INCLUDEDIRS "Include/" "cmsis-core")
 set(COMPONENT_SRCS 
 			"Source/DAP.c "
 			"Source/DAP_vendor.c"
