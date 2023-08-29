@@ -847,7 +847,7 @@ uint8_t swd_init_debug(void)
 
 	// call a target dependant function
 	// this function can do several stuff before really initing the debug
-	//target_before_init_debug();
+	// target_before_init_debug();
 
 	if (!JTAG2SWD())
 	{
@@ -923,7 +923,7 @@ __attribute__((weak)) void swd_set_target_reset(uint8_t asserted)
 //     }
 // }
 
-uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
+uint8_t swd_set_target_state_hw(target_state_t state)
 {
 	uint32_t val;
 	int8_t ap_retries = 2;
@@ -1065,7 +1065,9 @@ uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
 
 		swd_off();
 		break;
-
+	case POST_FLASH_RESET:
+		// This state should be handled in target_reset.c, nothing needs to be done here.
+		break;
 	default:
 		return 0;
 	}
@@ -1073,14 +1075,14 @@ uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
 	return 1;
 }
 
-uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state)
+uint8_t swd_set_target_state_sw(target_state_t state)
 {
 	uint32_t val;
 
 	/* Calling swd_init prior to enterring RUN state causes operations to fail. */
 	if (state != RUN)
 	{
-		swd_init(); //这行不屏蔽的话，无法软件复位程序
+		swd_init(); // 这行不屏蔽的话，无法软件复位程序
 	}
 
 	switch (state)
@@ -1222,6 +1224,9 @@ uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state)
 		}
 
 		swd_off();
+		break;
+	case POST_FLASH_RESET:
+		// This state should be handled in target_reset.c, nothing needs to be done here.
 		break;
 	default:
 		return 0;

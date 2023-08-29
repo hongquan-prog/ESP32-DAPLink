@@ -5,7 +5,7 @@
 #define ROUND_DOWN(value, boundary) ((value) - ((value) % (boundary)))
 
 FlashManager::FlashManager()
-    : _flash_intf(nullptr),
+    : TargetFlash(),
       _flash_state(FLASH_STATE_CLOSED),
       _current_sector_valid(false),
       _last_packet_addr(0),
@@ -18,6 +18,12 @@ FlashManager::FlashManager()
     memset(_page_buffer, 0xff, sizeof(_page_buffer));
 }
 
+FlashManager &FlashManager::get_instance()
+{
+    static FlashManager instance;
+    return instance;
+}
+
 error_t FlashManager::flush_current_block(uint32_t addr)
 {
     error_t status = ERROR_SUCCESS;
@@ -25,7 +31,7 @@ error_t FlashManager::flush_current_block(uint32_t addr)
     // Write out current buffer if there is data in it
     if (!_page_buf_empty)
     {
-        status = _flash_intf->program_page(_current_write_block_addr, _page_buffer, _current_write_block_size);
+        status = flash_program_page(_current_write_block_addr, _page_buffer, _current_write_block_size);
         _page_buf_empty = true;
     }
 
@@ -42,8 +48,8 @@ error_t FlashManager::setup_next_sector(uint32_t addr)
     uint32_t sector_size;
     error_t status;
 
-    min_prog_size = _flash_intf->program_page_min_size(addr);
-    sector_size = _flash_intf->erase_sector_size(addr);
+    min_prog_size = flash_program_page_min_size(addr);
+    sector_size = flash_erase_sector_size(addr);
 
     if ((min_prog_size <= 0) || (sector_size <= 0))
     {
@@ -57,21 +63,18 @@ error_t FlashManager::setup_next_sector(uint32_t addr)
     _current_write_block_size = (sector_size <= sizeof(_page_buffer)) ? (sector_size) : (sizeof(_page_buffer));
 
     // check flash algo every sector change, addresses with different flash algo should be sector aligned
-    if (_flash_intf->flash_algo_set)
+    status = flash_algo_set(_current_sector_addr);
+    if (ERROR_SUCCESS != status)
     {
-        status = _flash_intf->flash_algo_set(_current_sector_addr);
-        if (ERROR_SUCCESS != status)
-        {
-            _flash_intf->uninit();
-            return status;
-        }
+        uninit();
+        return status;
     }
 
     // Erase the current sector
-    status = _flash_intf->erase_sector(_current_sector_addr);
+    status = flash_erase_sector(_current_sector_addr);
     if (ERROR_SUCCESS != status)
     {
-        _flash_intf->uninit();
+        uninit();
         return status;
     }
 
@@ -81,62 +84,11 @@ error_t FlashManager::setup_next_sector(uint32_t addr)
     return ERROR_SUCCESS;
 }
 
-bool FlashManager::flash_intf_valid(flash_intf_t *flash_intf)
-{
-    if (0 == flash_intf)
-    {
-        return false;
-    }
-
-    if (0 == flash_intf->uninit)
-    {
-        return false;
-    }
-
-    if (0 == flash_intf->program_page)
-    {
-        return false;
-    }
-
-    if (0 == flash_intf->erase_sector)
-    {
-        return false;
-    }
-
-    if (0 == flash_intf->erase_chip)
-    {
-        return false;
-    }
-
-    if (0 == flash_intf->program_page_min_size)
-    {
-        return false;
-    }
-
-    if (0 == flash_intf->erase_sector_size)
-    {
-        return false;
-    }
-
-    if (0 == flash_intf->flash_busy)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-error_t FlashManager::init(flash_intf_t *flash_intf)
+error_t FlashManager::init(target_cfg_t *cfg)
 {
     error_t status = ERROR_SUCCESS;
 
     if (_flash_state != FLASH_STATE_CLOSED)
-    {
-        return ERROR_INTERNAL;
-    }
-
-    // Check for a valid flash interface
-    if (!flash_intf_valid(flash_intf))
     {
         return ERROR_INTERNAL;
     }
@@ -150,10 +102,9 @@ error_t FlashManager::init(flash_intf_t *flash_intf)
     _current_sector_addr = 0;
     _current_sector_size = 0;
     _last_packet_addr = 0;
-    _flash_intf = flash_intf;
 
     // Initialize flash
-    status = _flash_intf->init();
+    status = flash_init(cfg);
     if (ERROR_SUCCESS != status)
     {
         return status;
@@ -278,7 +229,7 @@ error_t FlashManager::uninit()
     }
 
     // Close flash interface (even if there was an error during program_page)
-    flash_uninit_ret = _flash_intf->uninit();
+    flash_uninit_ret = uninit();
 
     // Reset variables to catch accidental use
     memset(_page_buffer, 0xFF, sizeof(_page_buffer));

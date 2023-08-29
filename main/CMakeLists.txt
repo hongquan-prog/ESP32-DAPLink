@@ -4,4 +4,5 @@ idf_component_register(SRCS "main.c"
                         "msc_disk.c"
                         "hex_parser.c"
                         "flash_manager.cpp"
+                        "target_flash.cpp"
                        INCLUDE_DIRS .)

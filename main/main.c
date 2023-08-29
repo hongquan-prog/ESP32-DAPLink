@@ -19,6 +19,7 @@
 #include "DAP.h"
 #include "main.h"
 #include "msc_disk.h"
+// #include "bin_programmer.h"
 
 static const char *TAG = "main";
 
@@ -89,6 +90,24 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     DAP_ProcessCommand(buffer, s_tx_buf);
     tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
 }
+
+// extern const program_target_t flash_algo_H7;
+
+// target_cfg_t target_device = {
+//     .version                        = kTargetConfigVersion,
+//     .sectors_info                   = sectors_info,
+//     .sector_info_length             = (sizeof(sectors_info))/(sizeof(sector_info_t)),
+//     .flash_regions[0].start         = 0x08000000,
+//     .flash_regions[0].end           = 0x08020000,
+//     .flash_regions[0].flags         = kRegionIsDefault,
+//     .flash_regions[0].flash_algo    = (program_target_t *) &flash_algo_H7,
+//     .ram_regions[0].start           = 0x20000000,
+//     .ram_regions[0].end             = 0x20000000 +  0x20000,
+//     .ram_regions[1].start           = 0x24000000,
+//     .ram_regions[1].end             = 0x24000000 +  0x80000,
+//     .target_vendor                  = "STMicroelectronics",
+//     .target_part_number             = "STM32H7",
+// };
 
 void app_main(void)
 {

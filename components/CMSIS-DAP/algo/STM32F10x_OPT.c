@@ -28,6 +28,7 @@ const program_target_t flash_algo_F1 =
 	0x20000077,  // EraseChip
 	0x200000FB,  // EraseSector
 	0x2000013D,  // ProgramPage
+	0,
 
 	// BKPT : start of blob + 1
 	// RSB  : address to access global/static data
