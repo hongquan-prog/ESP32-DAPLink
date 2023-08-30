@@ -127,7 +127,7 @@ static const char *const error_message[] = {
 
 #endif // DAPLINK_NO_ERROR_MESSAGES
 
-static error_type_t error_type[] = {
+static dap_err_type_t error_type[] = {
 
     /* These should always stay the same for each error type. */
 
@@ -228,7 +228,7 @@ static error_type_t error_type[] = {
     ERROR_TYPE_INTERFACE,
 };
 
-const char *error_get_string(error_t error)
+const char *error_get_string(dap_err_t error)
 {
 #if !DAPLINK_NO_ERROR_MESSAGES
     const char *msg = NULL;
@@ -252,9 +252,9 @@ const char *error_get_string(error_t error)
 #endif  // DAPLINK_NO_ERROR_MESSAGES
 }
 
-error_type_t error_get_type(error_t error)
+dap_err_type_t error_get_type(dap_err_t error)
 {
-    error_type_t type = ERROR_TYPE_INTERNAL;
+    dap_err_type_t type = ERROR_TYPE_INTERNAL;
 
     if (error < ERROR_COUNT) {
         type = error_type[error];

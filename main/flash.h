@@ -21,6 +21,11 @@ typedef enum
     FLASH_STATE_ERROR
 } flash_state_t;
 
+enum _target_config_version
+{
+    kTargetConfigVersion = 1, //!< The current board info version.
+};
+
 enum _region_flags
 {
     kRegionIsDefault = (1 << 0), /*!< Out of bounds regions will use the same flash algo if this is set */
@@ -29,11 +34,11 @@ enum _region_flags
 
 typedef struct __attribute__((__packed__))
 {
-    uint32_t start;               /*!< Region start address. */
-    uint32_t end;                 /*!< Region end address. */
-    uint32_t flags;               /*!< Flags for this region from the #_region_flags enumeration. */
-    uint32_t alias_index;         /*!< Use with flags; will point to a different index if there is an alias region */
-    program_target_t *flash_algo; /*!< A pointer to the flash algorithm structure */
+    uint32_t start;                     /*!< Region start address. */
+    uint32_t end;                       /*!< Region end address. */
+    uint32_t flags;                     /*!< Flags for this region from the #_region_flags enumeration. */
+    uint32_t alias_index;               /*!< Use with flags; will point to a different index if there is an alias region */
+    const program_target_t *flash_algo; /*!< A pointer to the flash algorithm structure */
 } region_info_t;
 
 typedef struct __attribute__((__packed__))
@@ -49,10 +54,10 @@ typedef struct __attribute__((__packed__))
     uint8_t pad;
 
     /*!< CMSIS-DAP v2.1 target strings */
-    char *target_vendor;      /*!< Must match the Dvendor attribute value of the CMSIS DFP, excluding the
+    const char *target_vendor;      /*!< Must match the Dvendor attribute value of the CMSIS DFP, excluding the
                                    colon and vendor code suffix when present. Maximum 60 characters including
                                    terminal NULL. */
-    char *target_part_number; /*!< Part number of the target device. Must match the Dname attribute value
+    const char *target_part_number; /*!< Part number of the target device. Must match the Dname attribute value
                                    of the device's CMSIS DFP. Maximum 60 characters including terminal NULL. */
 } target_cfg_t;
 
@@ -60,13 +65,13 @@ class Flash
 {
 public:
     virtual ~Flash() = default;
-    virtual error_t flash_init(target_cfg_t *cfg) = 0;
-    virtual error_t flash_uninit(void) = 0;
-    virtual error_t flash_program_page(uint32_t addr, const uint8_t *buf, uint32_t size) = 0;
-    virtual error_t flash_erase_sector(uint32_t sector) = 0;
-    virtual error_t flash_erase_chip(void) = 0;
+    virtual dap_err_t flash_init(const target_cfg_t *cfg) = 0;
+    virtual dap_err_t flash_uninit(void) = 0;
+    virtual dap_err_t flash_program_page(uint32_t addr, const uint8_t *buf, uint32_t size) = 0;
+    virtual dap_err_t flash_erase_sector(uint32_t sector) = 0;
+    virtual dap_err_t flash_erase_chip(void) = 0;
     virtual uint32_t flash_program_page_min_size(uint32_t addr) = 0;
     virtual uint32_t flash_erase_sector_size(uint32_t addr) = 0;
     virtual uint8_t flash_busy(void) = 0;
-    virtual error_t flash_algo_set(uint32_t addr) = 0;
+    virtual dap_err_t flash_algo_set(uint32_t addr) = 0;
 };

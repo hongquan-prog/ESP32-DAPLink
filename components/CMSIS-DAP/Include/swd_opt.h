@@ -5,11 +5,11 @@
 
 #include "error.h"
 
-error_t target_opt_init(void);
-error_t target_opt_uninit(void);
-error_t target_opt_program_page(uint32_t addr, const uint8_t *buf, uint32_t size);
-error_t target_opt_erase_sector(uint32_t addr);
-error_t target_opt_erase_chip(void);
+dap_err_t target_opt_init(void);
+dap_err_t target_opt_uninit(void);
+dap_err_t target_opt_program_page(uint32_t addr, const uint8_t *buf, uint32_t size);
+dap_err_t target_opt_erase_sector(uint32_t addr);
+dap_err_t target_opt_erase_chip(void);
 
 
 #endif // __SWD_OPT_H__

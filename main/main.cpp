@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include "esp_log.h"
 #include <errno.h>
+#include <dirent.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "tinyusb.h"
@@ -19,7 +20,7 @@
 #include "DAP.h"
 #include "main.h"
 #include "msc_disk.h"
-// #include "bin_programmer.h"
+#include "hex_prog.h"
 
 static const char *TAG = "main";
 
@@ -62,13 +63,13 @@ static char const *string_desc_arr[] = {
     CONFIG_TINYUSB_DESC_HID_STRING,          // 6. HID
 };
 
-uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
+extern "C" uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
 {
     (void)instance;
     return desc_hid_dap_report;
 }
 
-uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
+extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
 {
     // TODO not Implemented
     (void)instance;
@@ -79,7 +80,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     return 0;
 }
 
-void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
+extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
 {
     static uint8_t s_tx_buf[CFG_TUD_HID_EP_BUFSIZE];
     // This doesn't use multiple report and report ID
@@ -91,33 +92,35 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
 }
 
-// extern const program_target_t flash_algo_H7;
+extern const program_target_t flash_algo_H7;
+static const sector_info_t sectors_info_h7[] = {
+    {0x08000000, 0x20000}};
 
-// target_cfg_t target_device = {
-//     .version                        = kTargetConfigVersion,
-//     .sectors_info                   = sectors_info,
-//     .sector_info_length             = (sizeof(sectors_info))/(sizeof(sector_info_t)),
-//     .flash_regions[0].start         = 0x08000000,
-//     .flash_regions[0].end           = 0x08020000,
-//     .flash_regions[0].flags         = kRegionIsDefault,
-//     .flash_regions[0].flash_algo    = (program_target_t *) &flash_algo_H7,
-//     .ram_regions[0].start           = 0x20000000,
-//     .ram_regions[0].end             = 0x20000000 +  0x20000,
-//     .ram_regions[1].start           = 0x24000000,
-//     .ram_regions[1].end             = 0x24000000 +  0x80000,
-//     .target_vendor                  = "STMicroelectronics",
-//     .target_part_number             = "STM32H7",
-// };
+target_cfg_t target_device_h7 = {
+    .version = kTargetConfigVersion,
+    .sectors_info = sectors_info_h7,
+    .sector_info_length = (sizeof(sectors_info_h7)) / (sizeof(sector_info_t)),
+    .flash_regions{{0x08000000, 0x08020000, kRegionIsDefault, 0, &flash_algo_H7}},
+    .ram_regions{{0x20000000, 0x20000000 + 0x20000, 0, 0, nullptr}, {0x24000000, 0x24000000 + 0x80000, 0, 0, nullptr}},
+    .rt_board_id = nullptr,
+    .rt_family_id = 0,
+    .erase_reset = 0,
+    .pad = 0,
+    .target_vendor = "STMicroelectronics",
+    .target_part_number = "STM32H7"};
 
-void app_main(void)
+extern "C" void app_main(void)
 {
+    static HexProg programmer;
+
     const tinyusb_config_t tusb_cfg = {
         .device_descriptor = &descriptor_config,
         .string_descriptor = string_desc_arr,
         .string_descriptor_count = sizeof(string_desc_arr) / sizeof(string_desc_arr[0]),
         .external_phy = false,
         .configuration_descriptor = desc_configuration,
-    };
+        .self_powered = false,
+        .vbus_monitor_io = 0};
 
     tinyusb_config_cdcacm_t acm_cfg = {
         .usb_dev = TINYUSB_USBDEV_0,
@@ -133,7 +136,12 @@ void app_main(void)
     msc_dick_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH);
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_ERROR_CHECK(tusb_cdc_acm_init(&acm_cfg));
-    cdc_uart_init(UART_NUM_1, GPIO_NUM_4, GPIO_NUM_5, 115200);
+    cdc_uart_init(UART_NUM_1, GPIO_NUM_13, GPIO_NUM_14, 115200);
     cdc_uart_register_rx_callback(cdc_uart_rx_callback, (void *)TINYUSB_CDC_ACM_0);
     ESP_LOGI(TAG, "USB initialization DONE");
+
+    // vTaskDelay(5000);
+    // programmer.programing_hex(target_device_h7, "/data/TOGGLE.hex");
+    // vTaskDelay(10000);
+    // programmer.programing_hex(target_device_h7, "/data/TOGGLE100.hex");
 }

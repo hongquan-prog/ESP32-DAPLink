@@ -29,8 +29,11 @@ extern uint32_t Flash_Page_Size;
 #define DHCSR 0xE000EDF0
 #define REGWnR (1 << 16)
 
-#define MAX_SWD_RETRY 10
-#define MAX_TIMEOUT 1000000 // Timeout for syscalls on target
+#define MAX_SWD_RETRY 100
+#define MAX_TIMEOUT 100000 // Timeout for syscalls on target
+
+//! This can vary from target to target and should be in the structure or flash blob
+#define TARGET_AUTO_INCREMENT_PAGE_SIZE    (1024)
 
 typedef struct
 {
@@ -341,16 +344,14 @@ static uint8_t swd_read_data(uint32_t addr, uint32_t *val)
 	int2array(tmp_in, addr, 4);
 	req = SWD_REG_AP | SWD_REG_W | (1 << 2);
 
-	if (swd_transfer_retry(req, (uint32_t *)tmp_in) != 0x01)
-	{
+	if (swd_transfer_retry(req, (uint32_t *)tmp_in) != 0x01) {
 		return 0;
 	}
 
 	// read data
 	req = SWD_REG_AP | SWD_REG_R | (3 << 2);
 
-	if (swd_transfer_retry(req, (uint32_t *)tmp_out) != 0x01)
-	{
+	if (swd_transfer_retry(req, (uint32_t *)tmp_out) != 0x01) {
 		return 0;
 	}
 
@@ -476,10 +477,8 @@ uint8_t swd_read_memory(uint32_t address, uint8_t *data, uint32_t size)
 	uint32_t n;
 
 	// Read bytes until word aligned
-	while ((size > 0) && (address & 0x3))
-	{
-		if (!swd_read_byte(address, data))
-		{
+	while ((size > 0) && (address & 0x3)) {
+		if (!swd_read_byte(address, data)) {
 			return 0;
 		}
 
@@ -489,18 +488,15 @@ uint8_t swd_read_memory(uint32_t address, uint8_t *data, uint32_t size)
 	}
 
 	// Read word aligned blocks
-	while (size > 3)
-	{
+	while (size > 3) {
 		// Limit to auto increment page size
-		n = Flash_Page_Size - (address & (Flash_Page_Size - 1));
+		n = TARGET_AUTO_INCREMENT_PAGE_SIZE - (address & (TARGET_AUTO_INCREMENT_PAGE_SIZE - 1));
 
-		if (size < n)
-		{
+		if (size < n) {
 			n = size & 0xFFFFFFFC; // Only count complete words remaining
 		}
 
-		if (!swd_read_block(address, data, n))
-		{
+		if (!swd_read_block(address, data, n)) {
 			return 0;
 		}
 
@@ -510,10 +506,8 @@ uint8_t swd_read_memory(uint32_t address, uint8_t *data, uint32_t size)
 	}
 
 	// Read remaining bytes
-	while (size > 0)
-	{
-		if (!swd_read_byte(address, data))
-		{
+	while (size > 0) {
+		if (!swd_read_byte(address, data)) {
 			return 0;
 		}
 
@@ -532,10 +526,8 @@ uint8_t swd_write_memory(uint32_t address, uint8_t *data, uint32_t size)
 	uint32_t n = 0;
 
 	// Write bytes until word aligned
-	while ((size > 0) && (address & 0x3))
-	{
-		if (!swd_write_byte(address, *data))
-		{
+	while ((size > 0) && (address & 0x3)) {
+		if (!swd_write_byte(address, *data)) {
 			return 0;
 		}
 
@@ -544,41 +536,36 @@ uint8_t swd_write_memory(uint32_t address, uint8_t *data, uint32_t size)
 		size--;
 	}
 
-	// Write word aligned blocks
-	while (size > 3)
-	{
-		// Limit to auto increment page size
-		n = Flash_Page_Size - (address & (Flash_Page_Size - 1));
+	    // Write word aligned blocks
+    while (size > 3) {
+        // Limit to auto increment page size
+        n = TARGET_AUTO_INCREMENT_PAGE_SIZE - (address & (TARGET_AUTO_INCREMENT_PAGE_SIZE - 1));
 
-		if (size < n)
-		{
-			n = size & 0xFFFFFFFC; // Only count complete words remaining
-		}
+        if (size < n) {
+            n = size & 0xFFFFFFFC; // Only count complete words remaining
+        }
 
-		if (!swd_write_block(address, data, n))
-		{
-			return 0;
-		}
+        if (!swd_write_block(address, data, n)) {
+            return 0;
+        }
 
-		address += n;
-		data += n;
-		size -= n;
-	}
+        address += n;
+        data += n;
+        size -= n;
+    }
 
-	// Write remaining bytes
-	while (size > 0)
-	{
-		if (!swd_write_byte(address, *data))
-		{
-			return 0;
-		}
+    // Write remaining bytes
+    while (size > 0) {
+        if (!swd_write_byte(address, *data)) {
+            return 0;
+        }
 
-		address++;
-		data++;
-		size--;
-	}
+        address++;
+        data++;
+        size--;
+    }
 
-	return 1;
+    return 1;
 }
 
 // Execute system call.

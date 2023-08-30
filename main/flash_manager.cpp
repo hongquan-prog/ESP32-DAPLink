@@ -1,6 +1,8 @@
 #include "flash_manager.h"
 #include <cstring>
+#include "esp_log.h"
 
+#define TAG "flash_manager"
 #define ROUND_UP(value, boundary) ((value) + ((boundary) - (value)) % (boundary))
 #define ROUND_DOWN(value, boundary) ((value) - ((value) % (boundary)))
 
@@ -24,9 +26,9 @@ FlashManager &FlashManager::get_instance()
     return instance;
 }
 
-error_t FlashManager::flush_current_block(uint32_t addr)
+dap_err_t FlashManager::flush_current_block(uint32_t addr)
 {
-    error_t status = ERROR_SUCCESS;
+    dap_err_t status = ERROR_SUCCESS;
 
     // Write out current buffer if there is data in it
     if (!_page_buf_empty)
@@ -37,16 +39,23 @@ error_t FlashManager::flush_current_block(uint32_t addr)
 
     // Setup for next block
     memset(_page_buffer, 0xFF, _current_write_block_size);
+    
+    if (!_current_write_block_size)
+    {
+        ESP_LOGE(TAG, "Invalid block size");
+        return ERROR_INTERNAL;
+    }
+
     _current_write_block_addr = ROUND_DOWN(addr, _current_write_block_size);
 
     return status;
 }
 
-error_t FlashManager::setup_next_sector(uint32_t addr)
+dap_err_t FlashManager::setup_next_sector(uint32_t addr)
 {
     uint32_t min_prog_size;
     uint32_t sector_size;
-    error_t status;
+    dap_err_t status;
 
     min_prog_size = flash_program_page_min_size(addr);
     sector_size = flash_erase_sector_size(addr);
@@ -66,7 +75,7 @@ error_t FlashManager::setup_next_sector(uint32_t addr)
     status = flash_algo_set(_current_sector_addr);
     if (ERROR_SUCCESS != status)
     {
-        uninit();
+        flash_uninit();
         return status;
     }
 
@@ -74,7 +83,8 @@ error_t FlashManager::setup_next_sector(uint32_t addr)
     status = flash_erase_sector(_current_sector_addr);
     if (ERROR_SUCCESS != status)
     {
-        uninit();
+        ESP_LOGE(TAG, "Flash sector erase failed");
+        flash_uninit();
         return status;
     }
 
@@ -84,9 +94,9 @@ error_t FlashManager::setup_next_sector(uint32_t addr)
     return ERROR_SUCCESS;
 }
 
-error_t FlashManager::init(target_cfg_t *cfg)
+dap_err_t FlashManager::init(const target_cfg_t *cfg)
 {
-    error_t status = ERROR_SUCCESS;
+    dap_err_t status = ERROR_SUCCESS;
 
     if (_flash_state != FLASH_STATE_CLOSED)
     {
@@ -107,20 +117,22 @@ error_t FlashManager::init(target_cfg_t *cfg)
     status = flash_init(cfg);
     if (ERROR_SUCCESS != status)
     {
+        ESP_LOGE(TAG, "Flash init failed");
         return status;
     }
 
+    ESP_LOGI(TAG, "Flash init successful");
     _flash_state = FLASH_STATE_OPEN;
 
     return status;
 }
 
-error_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_t size)
+dap_err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_t size)
 {
     uint32_t page_buf_left = 0;
     uint32_t copy_size = 0;
     uint32_t copy_start_pos = 0;
-    error_t status = ERROR_SUCCESS;
+    dap_err_t status = ERROR_SUCCESS;
 
     if (_flash_state != FLASH_STATE_OPEN)
     {
@@ -212,10 +224,10 @@ error_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_t 
     return status;
 }
 
-error_t FlashManager::uninit()
+dap_err_t FlashManager::uninit()
 {
-    error_t flash_write_ret = ERROR_SUCCESS;
-    error_t flash_uninit_ret = ERROR_SUCCESS;
+    dap_err_t flash_write_ret = ERROR_SUCCESS;
+    dap_err_t flash_uninit_ret = ERROR_SUCCESS;
 
     if (FLASH_STATE_CLOSED == _flash_state)
     {
@@ -229,7 +241,7 @@ error_t FlashManager::uninit()
     }
 
     // Close flash interface (even if there was an error during program_page)
-    flash_uninit_ret = uninit();
+    flash_uninit_ret = flash_uninit();
 
     // Reset variables to catch accidental use
     memset(_page_buffer, 0xFF, sizeof(_page_buffer));

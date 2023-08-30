@@ -28,7 +28,8 @@ extern "C" {
 
 // Keep in sync with the lists error_message and error_type
 // New values shold be added to the end of the enum to preserve error codes
-typedef enum {
+typedef enum 
+{
     /* Shared errors */
     ERROR_SUCCESS = 0,
     ERROR_FAILURE,
@@ -84,10 +85,10 @@ typedef enum {
     // Add new values here
 
     ERROR_COUNT
-} error_t;
+} dap_err_t;
 
 
-typedef unsigned char error_type_t;
+typedef unsigned char dap_err_type_t;
 
 #define ERROR_TYPE_INTERNAL 0x1
 #define ERROR_TYPE_TRANSIENT 0x2
@@ -97,11 +98,11 @@ typedef unsigned char error_type_t;
 // If you add another error type:
 // 1. update error_type_names, used by read_file_fail_txt()
 // 2. update ERROR_TYPE_MASK
-// 3. make sure that error type bits still fit inside of error_type_t
+// 3. make sure that error type bits still fit inside of dap_err_type_t
 #define ERROR_TYPE_MASK 0x1F
 
-const char *error_get_string(error_t error);
-error_type_t error_get_type(error_t error);
+const char *error_get_string(dap_err_t error);
+dap_err_type_t error_get_type(dap_err_t error);
 
 #ifdef __cplusplus
 }
