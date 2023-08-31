@@ -32,7 +32,7 @@ enum _region_flags
     kRegionIsSecure = (1 << 1),  /*!< The region can only be accessed from the secure world. Only applies for TrustZone-enabled targets. */
 };
 
-typedef struct __attribute__((__packed__))
+typedef struct
 {
     uint32_t start;                     /*!< Region start address. */
     uint32_t end;                       /*!< Region end address. */
@@ -41,7 +41,7 @@ typedef struct __attribute__((__packed__))
     const program_target_t *flash_algo; /*!< A pointer to the flash algorithm structure */
 } region_info_t;
 
-typedef struct __attribute__((__packed__))
+typedef struct
 {
     uint32_t version;                         /*!< Target configuration version */
     const sector_info_t *sectors_info;        /*!< Sector start and length list */
