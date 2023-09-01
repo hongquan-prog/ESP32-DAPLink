@@ -15,16 +15,16 @@ HexProg::HexProg(const std::string &file)
 
 bool HexProg::programing_hex(const target_cfg_t &cfg, const std::string &file)
 {
-    dap_err_t err = ERROR_SUCCESS;
     FRESULT ret = FR_OK;
     FILE *fp = nullptr;
     size_t rd_size = 0;
     uint32_t wr_addr = 0;
     uint32_t decode_size = 0;
     uint32_t total_size = 0;
+    Flash::err_t err = Flash::ERR_NONE;
 
     err = _flash_manager.init(&cfg);
-    if (err != ERROR_SUCCESS)
+    if (err != Flash::ERR_NONE)
     {
         return false;
     }
@@ -66,7 +66,7 @@ bool HexProg::programing_hex(const target_cfg_t &cfg, const std::string &file)
 
     fclose(fp);
     _flash_manager.uninit();
-    ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.target_part_number, _start_address);
+    ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name, _start_address);
 
     return true;
 }
@@ -103,7 +103,7 @@ bool HexProg::write_hex(const uint8_t *hex_data, uint32_t size, uint32_t &decode
             if (bin_buf_written > 0)
             {
                 decode_size += bin_buf_written;
-                if (ERROR_SUCCESS != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
+                if (Flash::ERR_NONE != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
                 {
                     return false;
                 }
@@ -116,7 +116,7 @@ bool HexProg::write_hex(const uint8_t *hex_data, uint32_t size, uint32_t &decode
             if (bin_buf_written > 0)
             {
                 decode_size += bin_buf_written;
-                if (ERROR_SUCCESS != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
+                if (Flash::ERR_NONE != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
                 {
                     return false;
                 }
@@ -131,7 +131,7 @@ bool HexProg::write_hex(const uint8_t *hex_data, uint32_t size, uint32_t &decode
             if (bin_buf_written > 0)
             {
                 decode_size += bin_buf_written;
-                if (ERROR_SUCCESS != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
+                if (Flash::ERR_NONE != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
                 {
                     return false;
                 }

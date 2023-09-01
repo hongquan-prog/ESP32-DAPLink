@@ -18,13 +18,13 @@ private:
     uint8_t _page_buffer[_page_size];
 
     FlashManager();
-    dap_err_t flush_current_block(uint32_t addr);
-    dap_err_t setup_next_sector(uint32_t addr);
+    Flash::err_t flush_current_block(uint32_t addr);
+    Flash::err_t setup_next_sector(uint32_t addr);
 
 public:
     ~FlashManager() = default;
     static FlashManager &get_instance();
-    dap_err_t init(const target_cfg_t *cfg);
-    dap_err_t write(uint32_t addr, const uint8_t *data, uint32_t size);
-    dap_err_t uninit();
+    Flash::err_t init(const target_cfg_t *cfg);
+    Flash::err_t write(uint32_t addr, const uint8_t *data, uint32_t size);
+    Flash::err_t uninit();
 };

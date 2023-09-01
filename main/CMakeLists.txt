@@ -7,5 +7,5 @@ idf_component_register(SRCS "main.cpp"
                         "target_flash.cpp"
                         "bin_prog.cpp"
                         "hex_prog.cpp"
-                        "flm_extractor.cpp"
+                        "algo_extractor.cpp"
                        INCLUDE_DIRS .)

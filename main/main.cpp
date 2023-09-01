@@ -21,7 +21,7 @@
 #include "main.h"
 #include "msc_disk.h"
 #include "hex_prog.h"
-#include "flm_extractor.h"
+#include "algo_extractor.h"
 
 static const char *TAG = "main";
 
@@ -96,7 +96,7 @@ extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_r
 extern "C" void app_main(void)
 {
     // static HexProg programmer;
-    // static FlmExtractor extractor;
+    // static AlgoExtractor extractor;
     // static program_target_t target;
     // static target_cfg_t cfg;
     // std::vector<sector_info_t> sector;
@@ -130,10 +130,8 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "USB initialization DONE");
 
     // extractor.extract("/data/algo/NXP/MIMXRT106x_QSPI_4KB_SEC.FLM", target, sector, cfg);
-    // cfg.target_vendor = "STMicroelectronics",
-    // cfg.target_part_number = "STM32H7";
-
     // printf("Target configuration version:%ld\n", cfg.version);
+    // printf("Device Name and Description: %s\n", cfg.device_name);
     // for (int i = 0; i < cfg.sector_info_length; i++)
     // {
     //     int sec_num = (i != (cfg.sector_info_length - 1)) ? ((cfg.sectors_info[i + 1].start - cfg.sectors_info[i].start) / cfg.sectors_info[i].size) : ((cfg.flash_regions[0].end - cfg.sectors_info[i].start) / cfg.sectors_info[i].size);

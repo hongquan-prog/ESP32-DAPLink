@@ -17,14 +17,14 @@ BinProg::BinProg(const std::string &file)
 bool BinProg::programming_bin(const target_cfg_t &cfg, uint32_t addr, const std::string &file)
 {
     size_t rd_size = 0;
-    dap_err_t err = ERROR_SUCCESS;
     FRESULT ret = FR_OK;
     uint32_t wr_addr = addr;
     uint32_t total_size = 0;
     FILE *fp = nullptr;
+    Flash::err_t err = Flash::ERR_NONE;
 
     err = _flash_manager.init(&cfg);
-    if (err != ERROR_SUCCESS)
+    if (err != Flash::ERR_NONE)
     {
         return false;
     }
@@ -52,7 +52,7 @@ bool BinProg::programming_bin(const target_cfg_t &cfg, uint32_t addr, const std:
         if (rd_size > 0)
         {
             total_size += rd_size;
-            if (ERROR_SUCCESS != _flash_manager.write(wr_addr, _bin_buffer, rd_size))
+            if (Flash::ERR_NONE != _flash_manager.write(wr_addr, _bin_buffer, rd_size))
             {
                 ESP_LOGE(TAG, "Failed to write bin at:%lx", wr_addr);
                 _flash_manager.uninit();
@@ -65,7 +65,7 @@ bool BinProg::programming_bin(const target_cfg_t &cfg, uint32_t addr, const std:
 
     fclose(fp);
     _flash_manager.uninit();
-    ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.target_part_number, addr);
+    ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name, addr);
 
     return true;
 }

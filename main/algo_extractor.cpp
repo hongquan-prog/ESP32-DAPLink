@@ -3,9 +3,12 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
-#include "flm_extractor.h"
+#include "esp_log.h"
+#include "algo_extractor.h"
 
-const std::vector<std::string> FlmExtractor::_function_list = {
+#define TAG "algo_extractor"
+
+const std::vector<std::string> AlgoExtractor::_function_list = {
     "FlashDevice",
     "Init",
     "UnInit",
@@ -15,13 +18,13 @@ const std::vector<std::string> FlmExtractor::_function_list = {
     "ProgramPage",
     "Verify"};
 
-const uint32_t FlmExtractor::_flash_bolb_header[8] = {0xE00ABE00, 0x062D780D, 0x24084068, 0xD3000040, 0x1E644058, 0x1C49D1FA, 0x2A001E52, 0x4770D1F};
+const uint32_t AlgoExtractor::_flash_bolb_header[8] = {0xE00ABE00, 0x062D780D, 0x24084068, 0xD3000040, 0x1E644058, 0x1C49D1FA, 0x2A001E52, 0x4770D1F};
 
-FlmExtractor::FlmExtractor()
+AlgoExtractor::AlgoExtractor()
 {
 }
 
-bool FlmExtractor::read_elf_hdr(FILE *fp, Elf_Ehdr &elf_hdr)
+bool AlgoExtractor::read_elf_hdr(FILE *fp, Elf_Ehdr &elf_hdr)
 {
     fseek(fp, 0, SEEK_SET);
 
@@ -31,7 +34,7 @@ bool FlmExtractor::read_elf_hdr(FILE *fp, Elf_Ehdr &elf_hdr)
     return true;
 }
 
-bool FlmExtractor::find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, const std::string &scn_name, Elf_Shdr &shdr)
+bool AlgoExtractor::find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, const std::string &scn_name, Elf_Shdr &shdr)
 {
     long cur_pos = 0;
     std::string name;
@@ -54,7 +57,7 @@ bool FlmExtractor::find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, 
     throw std::runtime_error("could not find section " + scn_name);
 }
 
-bool FlmExtractor::find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, const std::string &scn_name, uint32_t type, Elf_Shdr &shdr)
+bool AlgoExtractor::find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, const std::string &scn_name, uint32_t type, Elf_Shdr &shdr)
 {
     long cur_pos = 0;
     std::string name;
@@ -77,7 +80,7 @@ bool FlmExtractor::find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, 
     throw std::runtime_error("could not find section " + scn_name);
 }
 
-bool FlmExtractor::get_shstr_hdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr)
+bool AlgoExtractor::get_shstr_hdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr)
 {
     fseek(fp, elf_hdr.e_shoff + elf_hdr.e_shstrndx * elf_hdr.e_shentsize, SEEK_SET);
 
@@ -87,7 +90,7 @@ bool FlmExtractor::get_shstr_hdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_sh
     return true;
 }
 
-bool FlmExtractor::read_string(FILE *fp, Elf_Shdr &str_shdr, uint32_t offset, std::string &str)
+bool AlgoExtractor::read_string(FILE *fp, Elf_Shdr &str_shdr, uint32_t offset, std::string &str)
 {
     int c_tmp = 0;
     // FLM所用函数的名称的长度小于30字符
@@ -109,7 +112,7 @@ bool FlmExtractor::read_string(FILE *fp, Elf_Shdr &str_shdr, uint32_t offset, st
     return true;
 }
 
-void FlmExtractor::read_symbol_info(FILE *fp, Elf_Shdr &string_hdr, Elf_Shdr &sym_hdr, Elf_Shdr &str_hdr, std::map<std::string, Elf_Sym> &sym)
+void AlgoExtractor::read_symbol_info(FILE *fp, Elf_Shdr &string_hdr, Elf_Shdr &sym_hdr, Elf_Shdr &str_hdr, std::map<std::string, Elf_Sym> &sym)
 {
     std::string name;
     long cur_pos = 0;
@@ -136,7 +139,7 @@ void FlmExtractor::read_symbol_info(FILE *fp, Elf_Shdr &string_hdr, Elf_Shdr &sy
     }
 }
 
-bool FlmExtractor::extract_flash_device(FILE *fp, Elf_Sym &sym, Elf_Shdr &shdr, FlashDevice &dev)
+bool AlgoExtractor::extract_flash_device(FILE *fp, Elf_Sym &sym, Elf_Shdr &shdr, FlashDevice &dev)
 {
     fseek(fp, sym.st_value - shdr.sh_addr + shdr.sh_offset, SEEK_SET);
 
@@ -146,7 +149,7 @@ bool FlmExtractor::extract_flash_device(FILE *fp, Elf_Sym &sym, Elf_Shdr &shdr, 
     return true;
 }
 
-bool FlmExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, program_target_t &target)
+bool AlgoExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, program_target_t &target)
 {
     fseek(fp, code_scn.sh_offset, SEEK_SET);
     target.algo_start = _ram_start;
@@ -160,8 +163,9 @@ bool FlmExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, program_targ
     return true;
 }
 
-bool FlmExtractor::extract(const std::string &path, program_target_t &target, std::vector<sector_info_t> &sector, target_cfg_t &cfg)
+bool AlgoExtractor::extract(const std::string &path, program_target_t &target, std::vector<sector_info_t> &sector, target_cfg_t &cfg)
 {
+    bool ret = false;
     FILE *fp = nullptr;
     Elf_Ehdr elf_hdr;
     Elf_Shdr sym_shdr;
@@ -227,29 +231,18 @@ bool FlmExtractor::extract(const std::string &path, program_target_t &target, st
         cfg.flash_regions[0].flash_algo = &target;
         cfg.ram_regions[0].start = _ram_start;
         cfg.ram_regions[0].end = target.program_buffer + target.program_buffer_size;
-
-        printf("Version Number and Architecture: %d\n", device->vers);
-        printf("Device Name and Description: %s\n", device->devName);
-        printf("Device Type: %x\n", device->devType);
-        printf("Default Device Start Address: %lx\n", device->devAdr);
-        printf("Total Size of Device: %lx\n", device->szDev);
-        printf("Programming Page Size: %lx\n", device->szPage);
-        printf("Reserved for future Extension: %lx\n", device->res);
-        printf("Content of Erased Memory: %x\n", device->valEmpty);
-        printf("Time Out of Program Page Function: %ld\n", device->toProg);
-        printf("Time Out of Erase Sector Function: %ld\n", device->toErase);
-
-        fclose(fp);
-        free(device);
+        memcpy(cfg.device_name, device->devName, (sizeof(cfg.device_name) <= sizeof(device->devName)) ? (sizeof(cfg.device_name)) : (sizeof(device->devName)));
+        cfg.device_name[sizeof(cfg.device_name) - 1] = '\0';
+        ret = true;
     }
-    catch (...)
+    catch (std::exception &e)
     {
-        fclose(fp);
-        free(device);
+        ESP_LOGE(TAG, "%s", e.what());
         free(target.algo_blob);
-
-        return false;
     }
 
-    return true;
+    fclose(fp);
+    free(device);
+
+    return ret;
 }

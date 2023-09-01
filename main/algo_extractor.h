@@ -9,7 +9,7 @@
 #include "flash_blob.h"
 #include "FlashOS.h"
 
-class FlmExtractor
+class AlgoExtractor
 {
 private:
     typedef struct
@@ -35,6 +35,6 @@ private:
     void read_symbol_info(FILE *fp, Elf_Shdr &string_hdr, Elf_Shdr &sym_hdr, Elf_Shdr &str_hdr, std::map<std::string, Elf_Sym> &func);
 
 public:
-    FlmExtractor();
+    AlgoExtractor();
     bool extract(const std::string &path, program_target_t &target, std::vector<sector_info_t> &sector, target_cfg_t &cfg);
 };

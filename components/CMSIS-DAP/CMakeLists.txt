@@ -6,8 +6,6 @@ set(COMPONENT_SRCS
 			"Source/SW_DP.c"
 			"Source/swd_host.c"
 			"Source/error.c"
-			"algo/STM32H7xx.c"
-
 			)
 set(COMPONENT_REQUIRES driver)
 register_component()

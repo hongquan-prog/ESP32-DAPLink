@@ -26,9 +26,9 @@ FlashManager &FlashManager::get_instance()
     return instance;
 }
 
-dap_err_t FlashManager::flush_current_block(uint32_t addr)
+Flash::err_t FlashManager::flush_current_block(uint32_t addr)
 {
-    dap_err_t status = ERROR_SUCCESS;
+    Flash::err_t status = ERR_NONE;
 
     // Write out current buffer if there is data in it
     if (!_page_buf_empty)
@@ -39,11 +39,11 @@ dap_err_t FlashManager::flush_current_block(uint32_t addr)
 
     // Setup for next block
     memset(_page_buffer, 0xFF, _current_write_block_size);
-    
+
     if (!_current_write_block_size)
     {
         ESP_LOGE(TAG, "Invalid block size");
-        return ERROR_INTERNAL;
+        return ERR_INTERNAL;
     }
 
     _current_write_block_addr = ROUND_DOWN(addr, _current_write_block_size);
@@ -51,18 +51,18 @@ dap_err_t FlashManager::flush_current_block(uint32_t addr)
     return status;
 }
 
-dap_err_t FlashManager::setup_next_sector(uint32_t addr)
+Flash::err_t FlashManager::setup_next_sector(uint32_t addr)
 {
-    uint32_t min_prog_size;
-    uint32_t sector_size;
-    dap_err_t status;
+    uint32_t min_prog_size = 0;
+    uint32_t sector_size = 0;
+    Flash::err_t status = ERR_NONE;
 
     min_prog_size = flash_program_page_min_size(addr);
     sector_size = flash_erase_sector_size(addr);
 
     if ((min_prog_size <= 0) || (sector_size <= 0))
     {
-        return ERROR_INTERNAL;
+        return ERR_INTERNAL;
     }
 
     // Setup global variables
@@ -73,7 +73,7 @@ dap_err_t FlashManager::setup_next_sector(uint32_t addr)
 
     // check flash algo every sector change, addresses with different flash algo should be sector aligned
     status = flash_algo_set(_current_sector_addr);
-    if (ERROR_SUCCESS != status)
+    if (ERR_NONE != status)
     {
         flash_uninit();
         return status;
@@ -81,7 +81,7 @@ dap_err_t FlashManager::setup_next_sector(uint32_t addr)
 
     // Erase the current sector
     status = flash_erase_sector(_current_sector_addr);
-    if (ERROR_SUCCESS != status)
+    if (ERR_NONE != status)
     {
         ESP_LOGE(TAG, "Flash sector erase failed");
         flash_uninit();
@@ -91,16 +91,16 @@ dap_err_t FlashManager::setup_next_sector(uint32_t addr)
     // Clear out buffer in case block size changed
     memset(_page_buffer, 0xFF, _current_write_block_size);
 
-    return ERROR_SUCCESS;
+    return ERR_NONE;
 }
 
-dap_err_t FlashManager::init(const target_cfg_t *cfg)
+Flash::err_t FlashManager::init(const target_cfg_t *cfg)
 {
-    dap_err_t status = ERROR_SUCCESS;
+    Flash::err_t status = ERR_NONE;
 
     if (_flash_state != FLASH_STATE_CLOSED)
     {
-        return ERROR_INTERNAL;
+        return ERR_INTERNAL;
     }
 
     // Initialize variables
@@ -115,7 +115,7 @@ dap_err_t FlashManager::init(const target_cfg_t *cfg)
 
     // Initialize flash
     status = flash_init(cfg);
-    if (ERROR_SUCCESS != status)
+    if (ERR_NONE != status)
     {
         ESP_LOGE(TAG, "Flash init failed");
         return status;
@@ -127,16 +127,16 @@ dap_err_t FlashManager::init(const target_cfg_t *cfg)
     return status;
 }
 
-dap_err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_t size)
+Flash::err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_t size)
 {
     uint32_t page_buf_left = 0;
     uint32_t copy_size = 0;
     uint32_t copy_start_pos = 0;
-    dap_err_t status = ERROR_SUCCESS;
+    Flash::err_t status = ERR_NONE;
 
     if (_flash_state != FLASH_STATE_OPEN)
     {
-        return ERROR_INTERNAL;
+        return ERR_INTERNAL;
     }
 
     // Setup the current sector if it is not setup already
@@ -144,7 +144,7 @@ dap_err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_
     {
         status = setup_next_sector(packet_addr);
 
-        if (ERROR_SUCCESS != status)
+        if (ERR_NONE != status)
         {
             _flash_state = FLASH_STATE_ERROR;
             return status;
@@ -157,7 +157,7 @@ dap_err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_
     if (ROUND_DOWN(packet_addr, _current_write_block_size) != ROUND_DOWN(_last_packet_addr, _current_write_block_size))
     {
         status = flush_current_block(packet_addr);
-        if (ERROR_SUCCESS != status)
+        if (ERR_NONE != status)
         {
             _flash_state = FLASH_STATE_ERROR;
             return status;
@@ -167,7 +167,7 @@ dap_err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_
     if (ROUND_DOWN(packet_addr, _current_sector_size) != ROUND_DOWN(_last_packet_addr, _current_sector_size))
     {
         status = setup_next_sector(packet_addr);
-        if (ERROR_SUCCESS != status)
+        if (ERR_NONE != status)
         {
             _flash_state = FLASH_STATE_ERROR;
             return status;
@@ -181,7 +181,7 @@ dap_err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_
         {
             status = flush_current_block(packet_addr);
 
-            if (ERROR_SUCCESS != status)
+            if (ERR_NONE != status)
             {
                 _flash_state = FLASH_STATE_ERROR;
                 return status;
@@ -199,7 +199,7 @@ dap_err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_
         {
             status = setup_next_sector(packet_addr);
 
-            if (ERROR_SUCCESS != status)
+            if (ERR_NONE != status)
             {
                 _flash_state = FLASH_STATE_ERROR;
                 return status;
@@ -224,14 +224,14 @@ dap_err_t FlashManager::write(uint32_t packet_addr, const uint8_t *data, uint32_
     return status;
 }
 
-dap_err_t FlashManager::uninit()
+Flash::err_t FlashManager::uninit()
 {
-    dap_err_t flash_write_ret = ERROR_SUCCESS;
-    dap_err_t flash_uninit_ret = ERROR_SUCCESS;
+    Flash::err_t flash_write_ret = ERR_NONE;
+    Flash::err_t flash_uninit_ret = ERR_NONE;
 
     if (FLASH_STATE_CLOSED == _flash_state)
     {
-        return ERROR_INTERNAL;
+        return ERR_INTERNAL;
     }
 
     // Flush last buffer if its not empty
@@ -256,15 +256,15 @@ dap_err_t FlashManager::uninit()
     _flash_state = FLASH_STATE_CLOSED;
 
     // Make sure an error from a page write or from an uninit gets propagated
-    if (flash_uninit_ret != ERROR_SUCCESS)
+    if (flash_uninit_ret != ERR_NONE)
     {
         return flash_uninit_ret;
     }
 
-    if (flash_write_ret != ERROR_SUCCESS)
+    if (flash_write_ret != ERR_NONE)
     {
         return flash_write_ret;
     }
 
-    return ERROR_SUCCESS;
+    return ERR_NONE;
 }
