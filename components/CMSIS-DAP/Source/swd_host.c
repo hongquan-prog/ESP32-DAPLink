@@ -55,8 +55,9 @@ static uint8_t swd_write_core_register(uint32_t n, uint32_t val);
 void delaymS(uint32_t ms)
 {
 	uint32_t cnt = CPU_CLOCK / 4 / 1000 * ms;
-
-	for (uint32_t i = 0; i < cnt; i++)
+    
+	// To avoid being optimised by the compiler
+	for (volatile uint32_t i = 0; i < cnt; i++)
 	{
 	}
 }
@@ -1119,6 +1120,8 @@ uint8_t swd_set_target_state_sw(target_state_t state)
 			return 0;
 		}
 
+		delaymS(1);
+
 		if (!swd_write_word(NVIC_AIRCR, VECTKEY | (val & SCB_AIRCR_PRIGROUP_Msk) | SYSRESETREQ))
 		{
 			return 0;
@@ -1139,7 +1142,6 @@ uint8_t swd_set_target_state_sw(target_state_t state)
 		{
 			return 0;
 		}
-
 		break;
 
 	case NO_DEBUG:

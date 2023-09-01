@@ -28,11 +28,11 @@
 extern "C" {
 #endif
 
-#define VERS        1       // Interface Version 1.01
-#define NAME_MAX    128     // Max size of the routine name
-#define PAGE_MAX    65536   // Max Page Size for Programming
-#define SECTOR_NUM  512     // Max Number of Sector Items
-#define SECTOR_END  0xFFFFFFFF, 0xFFFFFFFF
+#define VERS            1       // Interface Version 1.01
+#define DEV_NAME_MAX    128     // Max size of the routine name
+#define PAGE_MAX        65536   // Max Page Size for Programming
+#define SECTOR_NUM      512     // Max Number of Sector Items
+#define SECTOR_END      0xFFFFFFFF, 0xFFFFFFFF
 
 // FlashDevice.devType interface mechanism
 #define UNKNOWN     0
@@ -58,7 +58,7 @@ struct FlashSector {
  */
 struct FlashDevice {
     uint16_t vers;          /*!< Version Number and Architecture */
-    char devName[NAME_MAX]; /*!< Device Name and Description */
+    char devName[DEV_NAME_MAX]; /*!< Device Name and Description */
     uint16_t devType;       /*!< Device Type: ONCHIP, EXT8BIT, EXT16BIT, ... */
     uint32_t devAdr;        /*!< Default Device Start Address */
     uint32_t szDev;         /*!< Total Size of Device */

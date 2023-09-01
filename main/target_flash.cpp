@@ -214,7 +214,7 @@ dap_err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *buf, uin
                 }
             }
 
-            ESP_LOGI(TAG, "Write %ld bytes to 0x%08lx", write_size, addr);
+            ESP_LOGD(TAG, "Write %ld bytes to 0x%08lx", write_size, addr - write_size);
         }
 
         return ERROR_SUCCESS;

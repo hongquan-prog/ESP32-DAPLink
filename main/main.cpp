@@ -21,6 +21,7 @@
 #include "main.h"
 #include "msc_disk.h"
 #include "hex_prog.h"
+#include "flm_extractor.h"
 
 static const char *TAG = "main";
 
@@ -92,26 +93,14 @@ extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_r
     tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
 }
 
-extern const program_target_t flash_algo_H7;
-static const sector_info_t sectors_info_h7[] = {
-    {0x08000000, 0x20000}};
-
-target_cfg_t target_device_h7 = {
-    .version = kTargetConfigVersion,
-    .sectors_info = sectors_info_h7,
-    .sector_info_length = (sizeof(sectors_info_h7)) / (sizeof(sector_info_t)),
-    .flash_regions{{0x08000000, 0x08020000, kRegionIsDefault, 0, &flash_algo_H7}},
-    .ram_regions{{0x20000000, 0x20000000 + 0x20000, 0, 0, nullptr}, {0x24000000, 0x24000000 + 0x80000, 0, 0, nullptr}},
-    .rt_board_id = nullptr,
-    .rt_family_id = 0,
-    .erase_reset = 0,
-    .pad = 0,
-    .target_vendor = "STMicroelectronics",
-    .target_part_number = "STM32H7"};
-
 extern "C" void app_main(void)
 {
-    static HexProg programmer;
+    // static HexProg programmer;
+    // static FlmExtractor extractor;
+    // static program_target_t target;
+    // static target_cfg_t cfg;
+    // std::vector<sector_info_t> sector;
+    // TickType_t start_time = 0;
 
     const tinyusb_config_t tusb_cfg = {
         .device_descriptor = &descriptor_config,
@@ -140,8 +129,35 @@ extern "C" void app_main(void)
     cdc_uart_register_rx_callback(cdc_uart_rx_callback, (void *)TINYUSB_CDC_ACM_0);
     ESP_LOGI(TAG, "USB initialization DONE");
 
-    // vTaskDelay(5000);
-    // programmer.programing_hex(target_device_h7, "/data/TOGGLE.hex");
-    // vTaskDelay(10000);
-    // programmer.programing_hex(target_device_h7, "/data/TOGGLE100.hex");
+    // extractor.extract("/data/algo/NXP/MIMXRT106x_QSPI_4KB_SEC.FLM", target, sector, cfg);
+    // cfg.target_vendor = "STMicroelectronics",
+    // cfg.target_part_number = "STM32H7";
+
+    // printf("Target configuration version:%ld\n", cfg.version);
+    // for (int i = 0; i < cfg.sector_info_length; i++)
+    // {
+    //     int sec_num = (i != (cfg.sector_info_length - 1)) ? ((cfg.sectors_info[i + 1].start - cfg.sectors_info[i].start) / cfg.sectors_info[i].size) : ((cfg.flash_regions[0].end - cfg.sectors_info[i].start) / cfg.sectors_info[i].size);
+    //     printf("Sector info %d  start addr: 0x%lx, secrot size: 0x%lx * %d\n", i, cfg.sectors_info[i].start, cfg.sectors_info[i].size, sec_num);
+    // }
+
+    // for (int i = 0; i < MAX_REGIONS; i++)
+    // {
+    //     if (cfg.flash_regions[i].start == 0 && cfg.flash_regions[i].end == 0)
+    //         break;
+
+    //     printf("Flash region %d addr: 0x%lx, end: 0x%lx\n", i, cfg.flash_regions[i].start, cfg.flash_regions[i].end);
+    // }
+
+    // for (int i = 0; i < MAX_REGIONS; i++)
+    // {
+    //     if (cfg.ram_regions[i].start == 0 && cfg.ram_regions[i].end == 0)
+    //         break;
+
+    //     printf("RAM region %d addr: 0x%lx, end: 0x%lx\n", i, cfg.ram_regions[i].start, cfg.ram_regions[i].end);
+    // }
+
+    // start_time = xTaskGetTickCount();
+    // programmer.programing_hex(cfg, "/data/zephyr.hex");
+    // ESP_LOGI(TAG, "Elapsed time %ld ms", (xTaskGetTickCount() - start_time) * portTICK_PERIOD_MS);
+    // free(target.algo_blob);
 }

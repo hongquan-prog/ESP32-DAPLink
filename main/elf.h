@@ -36,8 +36,8 @@
 #define ELFSIZE    32
 
 typedef unsigned char  __uint8_t;
-typedef unsigned int  __uint32_t;
-typedef int  __int32_t;
+// typedef unsigned int  __uint32_t;
+// typedef int  __int32_t;
 typedef short  __int16_t;
 typedef unsigned short  __uint16_t;
 typedef uint64_t  __uint64_t;

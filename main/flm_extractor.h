@@ -32,9 +32,7 @@ private:
     bool find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, const std::string &scn_name, uint32_t type, Elf_Shdr &shdr);
 
     bool read_elf_hdr(FILE *fp, Elf_Ehdr &elf_hdr);
-    bool get_section_header(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &str_hdr, const std::string &section_name, Elf_Shdr &sym_hdr);
-    bool get_symbol_offset(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Sym &sym, uint32_t &offset);
-    bool read_symbol_info(FILE *fp, Elf_Shdr &string_hdr, Elf_Shdr &sym_hdr, Elf_Shdr &str_hdr, std::map<std::string, Elf_Sym> &func);
+    void read_symbol_info(FILE *fp, Elf_Shdr &string_hdr, Elf_Shdr &sym_hdr, Elf_Shdr &str_hdr, std::map<std::string, Elf_Sym> &func);
 
 public:
     FlmExtractor();
