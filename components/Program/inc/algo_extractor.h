@@ -5,8 +5,7 @@
 #include <vector>
 #include <map>
 #include "elf.h"
-#include "flash.h"
-#include "flash_blob.h"
+#include "flash_iface.h"
 #include "FlashOS.h"
 
 class AlgoExtractor
@@ -27,7 +26,7 @@ private:
     bool find_scn_hdr_by_phdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Phdr &phdr, std::vector<Elf_Shdr> &shdr);
     bool get_shstr_hdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &str_tab_hdr);
     bool extract_flash_device(FILE *fp, Elf_Sym &sym, Elf_Shdr &shdr, FlashDevice &dev);
-    bool extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, program_target_t &target);
+    bool extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, FlashIface::program_target_t &target);
     bool find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, const std::string &scn_name, Elf_Shdr &shdr);
     bool find_shdr(FILE *fp, Elf_Ehdr &elf_hdr, Elf_Shdr &shstr_shdr, const std::string &scn_name, uint32_t type, Elf_Shdr &shdr);
 
@@ -36,5 +35,5 @@ private:
 
 public:
     AlgoExtractor();
-    bool extract(const std::string &path, program_target_t &target, std::vector<sector_info_t> &sector, target_cfg_t &cfg);
+    bool extract(const std::string &path, FlashIface::program_target_t &target, FlashIface::target_cfg_t &cfg);
 };

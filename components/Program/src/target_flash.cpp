@@ -1,5 +1,4 @@
 #include "target_flash.h"
-#include "swd_host.h"
 #include "esp_log.h"
 #include <cstring>
 
@@ -7,7 +6,8 @@
 #define DEFAULT_PROGRAM_PAGE_MIN_SIZE (256u)
 
 TargetFlash::TargetFlash()
-    : _flash_cfg(nullptr),
+    : _swd(nullptr),
+      _flash_cfg(nullptr),
       _last_func_type(FLASH_FUNC_NOP),
       _current_flash_algo(nullptr),
       _flash_state(FLASH_STATE_CLOSED),
@@ -16,17 +16,17 @@ TargetFlash::TargetFlash()
 {
 }
 
-const program_target_t *TargetFlash::get_flash_algo(uint32_t addr)
+const FlashIface::program_target_t *TargetFlash::get_flash_algo(uint32_t addr)
 {
-    for (const region_info_t *flash_region = _flash_cfg->flash_regions; flash_region->start != 0 || flash_region->end != 0; ++flash_region)
+    for (auto &flash_region : _flash_cfg->flash_regions)
     {
-        if (addr >= flash_region->start && addr <= flash_region->end)
+        if (addr >= flash_region.start && addr <= flash_region.end)
         {
-            _flash_start_addr = flash_region->start;
+            _flash_start_addr = flash_region.start;
 
-            if (flash_region->flash_algo)
+            if (flash_region.flash_algo)
             {
-                return flash_region->flash_algo;
+                return flash_region.flash_algo;
             }
             else
             {
@@ -45,20 +45,20 @@ const program_target_t *TargetFlash::get_flash_algo(uint32_t addr)
     return nullptr;
 }
 
-Flash::err_t TargetFlash::flash_func_start(flash_func_t func_type)
+FlashIface::err_t TargetFlash::flash_func_start(FlashIface::func_t func_type)
 {
     if (_last_func_type != func_type)
     {
         // Finish the currently active function.
         if (FLASH_FUNC_NOP != _last_func_type && (FLASH_FUNC_NOP == func_type) &&
-            0 == swd_flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->uninit, _last_func_type, 0, 0, 0))
+            0 == _swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->uninit, _last_func_type, 0, 0, 0))
         {
             return ERR_UNINIT;
         }
 
         // Start a new function.
         if (FLASH_FUNC_NOP != func_type && (FLASH_FUNC_NOP == _last_func_type) &&
-            0 == swd_flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->init, _flash_start_addr, 0, func_type, 0))
+            0 == _swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->init, _flash_start_addr, 0, func_type, 0))
         {
             return ERR_INIT;
         }
@@ -69,39 +69,37 @@ Flash::err_t TargetFlash::flash_func_start(flash_func_t func_type)
     return ERR_NONE;
 }
 
-Flash::err_t TargetFlash::flash_init(const target_cfg_t *cfg)
+void TargetFlash::swd_init(SWDInface &swd)
 {
-    if (cfg)
-    {
-        _flash_cfg = cfg;
-        _last_func_type = FLASH_FUNC_NOP;
-        _current_flash_algo = nullptr;
-
-        if (0 == swd_set_target_state_sw(RESET_PROGRAM))
-        {
-            return ERR_RESET;
-        }
-
-        // get default region
-        for (const region_info_t *flash_region = _flash_cfg->flash_regions; flash_region->start != 0 || flash_region->end != 0; ++flash_region)
-        {
-            if (flash_region->flags & kRegionIsDefault)
-            {
-                _default_flash_region = flash_region;
-                break;
-            }
-        }
-
-        _flash_state = FLASH_STATE_OPEN;
-        return ERR_NONE;
-    }
-    else
-    {
-        return ERR_FAILURE;
-    }
+    _swd = &swd;
 }
 
-Flash::err_t TargetFlash::flash_uninit(void)
+FlashIface::err_t TargetFlash::flash_init(const target_cfg_t &cfg)
+{
+    _flash_cfg = &cfg;
+    _last_func_type = FLASH_FUNC_NOP;
+    _current_flash_algo = nullptr;
+
+    if (0 == _swd->set_target_state_sw(SWDInface::TARGET_RESET_PROGRAM))
+    {
+        return ERR_RESET;
+    }
+
+    // get default region
+    for (auto &flash_region : _flash_cfg->flash_regions)
+    {
+        if (flash_region.flags & REIGION_DEFAULT)
+        {
+            _default_flash_region = &flash_region;
+            break;
+        }
+    }
+
+    _flash_state = FLASH_STATE_OPEN;
+    return ERR_NONE;
+}
+
+FlashIface::err_t TargetFlash::flash_uninit(void)
 {
     if (_flash_cfg)
     {
@@ -112,14 +110,14 @@ Flash::err_t TargetFlash::flash_uninit(void)
         }
 
         // Resume the target if configured to do so
-        swd_set_target_state_sw(RESET_RUN);
+        _swd->set_target_state_sw(SWDInface::TARGET_RESET_RUN);
 
         // Check to see if anything needs to be done after programming.
         // This is usually a no-op for most targets.
-        swd_set_target_state_sw(POST_FLASH_RESET);
+        _swd->set_target_state_sw(SWDInface::TARGET_POST_FLASH_RESET);
 
         _flash_state = FLASH_STATE_CLOSED;
-        swd_off();
+        _swd->off();
         return ERR_NONE;
     }
     else
@@ -128,7 +126,7 @@ Flash::err_t TargetFlash::flash_uninit(void)
     }
 }
 
-Flash::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *buf, uint32_t size)
+FlashIface::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *buf, uint32_t size)
 {
     uint32_t write_size = 0;
     uint32_t write_size_duplicated = 0;
@@ -155,16 +153,16 @@ Flash::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *buf, 
             write_size = (size <= flash_algo->program_buffer_size) ? (size) : (flash_algo->program_buffer_size);
 
             // Write page to buffer
-            if (!swd_write_memory(flash_algo->program_buffer, (uint8_t *)buf, write_size))
+            if (!_swd->write_memory(flash_algo->program_buffer, (uint8_t *)buf, write_size))
             {
                 ESP_LOGE(TAG, "Error writing flash buffer");
                 return ERR_ALGO_DATA_SEQ;
             }
 
             // Run flash programming
-            if (!swd_flash_syscall_exec(&flash_algo->sys_call_s, flash_algo->program_page, addr, write_size, flash_algo->program_buffer, 0))
+            if (!_swd->flash_syscall_exec(&flash_algo->sys_call_s, flash_algo->program_page, addr, write_size, flash_algo->program_buffer, 0))
             {
-                ESP_LOGE(TAG, "swd_flash_syscall_exec program page error");
+                ESP_LOGE(TAG, "flash_syscall_exec program page error");
                 return ERR_WRITE;
             }
 
@@ -177,7 +175,7 @@ Flash::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *buf, 
                     return status;
                 }
 
-                if (!swd_flash_syscall_exec(&flash_algo->sys_call_s, flash_algo->verify, addr, write_size, flash_algo->program_buffer, 0))
+                if (!_swd->flash_syscall_exec(&flash_algo->sys_call_s, flash_algo->verify, addr, write_size, flash_algo->program_buffer, 0))
                 {
                     return ERR_WRITE_VERIFY;
                 }
@@ -195,7 +193,7 @@ Flash::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *buf, 
                 {
                     uint32_t verify_size = (write_size_duplicated <= sizeof(_verify_buf)) ? (write_size_duplicated) : (sizeof(_verify_buf));
 
-                    if (!swd_read_memory(addr, _verify_buf, verify_size))
+                    if (!_swd->read_memory(addr, _verify_buf, verify_size))
                     {
                         ESP_LOGE(TAG, "Error reading flash buffer");
                         return ERR_ALGO_DATA_SEQ;
@@ -225,7 +223,7 @@ Flash::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *buf, 
     }
 }
 
-Flash::err_t TargetFlash::flash_erase_sector(uint32_t addr)
+FlashIface::err_t TargetFlash::flash_erase_sector(uint32_t addr)
 {
     err_t status = ERR_NONE;
     const program_target_t *flash = _current_flash_algo;
@@ -250,7 +248,7 @@ Flash::err_t TargetFlash::flash_erase_sector(uint32_t addr)
             return status;
         }
 
-        if (0 == swd_flash_syscall_exec(&flash->sys_call_s, flash->erase_sector, addr, 0, 0, 0))
+        if (0 == _swd->flash_syscall_exec(&flash->sys_call_s, flash->erase_sector, addr, 0, 0, 0))
         {
             return ERR_ERASE_SECTOR;
         }
@@ -263,24 +261,23 @@ Flash::err_t TargetFlash::flash_erase_sector(uint32_t addr)
     }
 }
 
-Flash::err_t TargetFlash::flash_erase_chip(void)
+FlashIface::err_t TargetFlash::flash_erase_chip(void)
 {
     err_t status = ERR_NONE;
-    const region_info_t *flash_region = _flash_cfg->flash_regions;
     const program_target_t *new_flash_algo = nullptr;
 
     if (_flash_cfg)
     {
-        for (; flash_region->start != 0 || flash_region->end != 0; ++flash_region)
+        for (auto &flash_region : _flash_cfg->flash_regions)
         {
-            new_flash_algo = get_flash_algo(flash_region->start);
+            new_flash_algo = get_flash_algo(flash_region.start);
 
             if ((new_flash_algo == NULL))
             {
                 continue;
             }
 
-            status = flash_algo_set(flash_region->start);
+            status = flash_algo_set(flash_region.start);
             if (status != ERR_NONE)
             {
                 return status;
@@ -292,7 +289,7 @@ Flash::err_t TargetFlash::flash_erase_chip(void)
                 return status;
             }
 
-            if (0 == swd_flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->erase_chip, 0, 0, 0, 0))
+            if (0 == _swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->erase_chip, 0, 0, 0, 0))
             {
                 return ERR_ERASE_ALL;
             }
@@ -301,7 +298,7 @@ Flash::err_t TargetFlash::flash_erase_chip(void)
         // Reset and re-initialize the target after the erase if required
         if (_flash_cfg->erase_reset)
         {
-            status = flash_init(_flash_cfg);
+            status = flash_init(*_flash_cfg);
         }
 
         return status;
@@ -333,13 +330,13 @@ uint32_t TargetFlash::flash_erase_sector_size(uint32_t addr)
 {
     if (_flash_cfg)
     {
-        if (_flash_cfg->sector_info_length > 0)
+        if (_flash_cfg->sector_info.size())
         {
-            for (int sector_index = _flash_cfg->sector_info_length - 1; sector_index >= 0; sector_index--)
+            for (auto it = _flash_cfg->sector_info.crbegin(); it != _flash_cfg->sector_info.crend(); ++it)
             {
-                if (addr >= _flash_cfg->sectors_info[sector_index].start)
+                if (addr >= it->start)
                 {
-                    return _flash_cfg->sectors_info[sector_index].size;
+                    return it->size;
                 }
             }
         }
@@ -357,7 +354,7 @@ uint8_t TargetFlash::flash_busy(void)
     return (_flash_state == FLASH_STATE_OPEN);
 }
 
-Flash::err_t TargetFlash::flash_algo_set(uint32_t addr)
+FlashIface::err_t TargetFlash::flash_algo_set(uint32_t addr)
 {
     const program_target_t *new_flash_algo = get_flash_algo(addr);
 
@@ -374,7 +371,7 @@ Flash::err_t TargetFlash::flash_algo_set(uint32_t addr)
             return status;
         }
         // Download flash programming algorithm to target
-        if (0 == swd_write_memory(new_flash_algo->algo_start, (uint8_t *)new_flash_algo->algo_blob, new_flash_algo->algo_size))
+        if (0 == _swd->write_memory(new_flash_algo->algo_start, (uint8_t *)new_flash_algo->algo_blob, new_flash_algo->algo_size))
         {
             ESP_LOGE(TAG, "Error writing flash algo");
             return ERR_ALGO_DL;

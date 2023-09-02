@@ -149,7 +149,7 @@ bool AlgoExtractor::extract_flash_device(FILE *fp, Elf_Sym &sym, Elf_Shdr &shdr,
     return true;
 }
 
-bool AlgoExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, program_target_t &target)
+bool AlgoExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, FlashIface::program_target_t &target)
 {
     fseek(fp, code_scn.sh_offset, SEEK_SET);
     target.algo_start = _ram_start;
@@ -163,7 +163,7 @@ bool AlgoExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, program_tar
     return true;
 }
 
-bool AlgoExtractor::extract(const std::string &path, program_target_t &target, std::vector<sector_info_t> &sector, target_cfg_t &cfg)
+bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_t &target, FlashIface::target_cfg_t &cfg)
 {
     bool ret = false;
     FILE *fp = nullptr;
@@ -185,7 +185,7 @@ bool AlgoExtractor::extract(const std::string &path, program_target_t &target, s
         memset(&sym_shdr, 0, sizeof(Elf_Shdr));
         memset(&str_shdr, 0, sizeof(Elf_Shdr));
         memset(device, 0, sizeof(Elf_Shdr));
-        memset(&target, 0, sizeof(program_target_t));
+        memset(&target, 0, sizeof(FlashIface::program_target_t));
 
         read_elf_hdr(fp, elf_hdr);
         get_shstr_hdr(fp, elf_hdr, shstr_shdr);
@@ -214,25 +214,21 @@ bool AlgoExtractor::extract(const std::string &path, program_target_t &target, s
         target.program_page = (sym_table.find("ProgramPage") != sym_table.end()) ? (sym_table["ProgramPage"].st_value + sizeof(_flash_bolb_header) + target.algo_start) : (0);
         target.verify = (sym_table.find("Verify") != sym_table.end()) ? (sym_table["Verify"].st_value + sizeof(_flash_bolb_header) + target.algo_start) : (0);
 
+        cfg.sector_info.clear();
+        cfg.flash_regions.clear();
+        cfg.ram_regions.clear();
+        cfg.erase_reset = false;
+        cfg.flash_regions.push_back(FlashIface::region_info_t{device->devAdr, device->devAdr + device->szDev, FlashIface::REIGION_DEFAULT, &target});
+        cfg.ram_regions.push_back(FlashIface::region_info_t{target.program_buffer, target.program_buffer + target.program_buffer_size, 0, nullptr});
+        cfg.device_name.replace(0, cfg.device_name.size(), device->devName);
+
         for (int i = 0; i < SECTOR_NUM; i++)
         {
             if (device->sectors[i].adrSector == 0xffffffff && device->sectors[i].szSector == 0xffffffff)
                 break;
-            sector.push_back(sector_info_t{device->devAdr + device->sectors[i].adrSector, device->sectors[i].szSector});
+            cfg.sector_info.push_back(FlashIface::sector_info_t{device->devAdr + device->sectors[i].adrSector, device->sectors[i].szSector});
         }
 
-        cfg.version = kTargetConfigVersion;
-        cfg.sectors_info = sector.data();
-        cfg.sector_info_length = sector.size();
-        cfg.erase_reset = false;
-        cfg.flash_regions[0].start = device->devAdr;
-        cfg.flash_regions[0].end = device->devAdr + device->szDev;
-        cfg.flash_regions[0].flags = kRegionIsDefault;
-        cfg.flash_regions[0].flash_algo = &target;
-        cfg.ram_regions[0].start = _ram_start;
-        cfg.ram_regions[0].end = target.program_buffer + target.program_buffer_size;
-        memcpy(cfg.device_name, device->devName, (sizeof(cfg.device_name) <= sizeof(device->devName)) ? (sizeof(cfg.device_name)) : (sizeof(device->devName)));
-        cfg.device_name[sizeof(cfg.device_name) - 1] = '\0';
         ret = true;
     }
     catch (std::exception &e)

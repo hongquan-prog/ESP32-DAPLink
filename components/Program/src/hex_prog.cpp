@@ -13,7 +13,7 @@ HexProg::HexProg(const std::string &file)
 {
 }
 
-bool HexProg::programing_hex(const target_cfg_t &cfg, const std::string &file)
+bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::string &file)
 {
     FRESULT ret = FR_OK;
     FILE *fp = nullptr;
@@ -21,10 +21,10 @@ bool HexProg::programing_hex(const target_cfg_t &cfg, const std::string &file)
     uint32_t wr_addr = 0;
     uint32_t decode_size = 0;
     uint32_t total_size = 0;
-    Flash::err_t err = Flash::ERR_NONE;
+    FlashIface::err_t err = FlashIface::ERR_NONE;
 
-    err = _flash_manager.init(&cfg);
-    if (err != Flash::ERR_NONE)
+    err = _flash_accessor.init(cfg);
+    if (err != FlashIface::ERR_NONE)
     {
         return false;
     }
@@ -37,6 +37,7 @@ bool HexProg::programing_hex(const target_cfg_t &cfg, const std::string &file)
 
     _file_path = file;
     fp = fopen(file.c_str(), "r");
+
     if (ret != FR_OK)
     {
         ESP_LOGE(TAG, "Failed to open %s", file.c_str());
@@ -55,7 +56,7 @@ bool HexProg::programing_hex(const target_cfg_t &cfg, const std::string &file)
             if (!write_hex(_hex_buffer, rd_size, decode_size))
             {
                 ESP_LOGE(TAG, "Failed to write hex at:%lx", _start_address + wr_addr);
-                _flash_manager.uninit();
+                _flash_accessor.uninit();
                 return false;
             }
 
@@ -65,13 +66,13 @@ bool HexProg::programing_hex(const target_cfg_t &cfg, const std::string &file)
     }
 
     fclose(fp);
-    _flash_manager.uninit();
-    ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name, _start_address);
+    _flash_accessor.uninit();
+    ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), _start_address);
 
     return true;
 }
 
-bool HexProg::programing_hex(const target_cfg_t &cfg)
+bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg)
 {
     return programing_hex(cfg, _file_path);
 }
@@ -103,7 +104,7 @@ bool HexProg::write_hex(const uint8_t *hex_data, uint32_t size, uint32_t &decode
             if (bin_buf_written > 0)
             {
                 decode_size += bin_buf_written;
-                if (Flash::ERR_NONE != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
+                if (FlashIface::ERR_NONE != _flash_accessor.write(bin_start_address, _bin_buffer, bin_buf_written))
                 {
                     return false;
                 }
@@ -116,7 +117,7 @@ bool HexProg::write_hex(const uint8_t *hex_data, uint32_t size, uint32_t &decode
             if (bin_buf_written > 0)
             {
                 decode_size += bin_buf_written;
-                if (Flash::ERR_NONE != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
+                if (FlashIface::ERR_NONE != _flash_accessor.write(bin_start_address, _bin_buffer, bin_buf_written))
                 {
                     return false;
                 }
@@ -131,7 +132,7 @@ bool HexProg::write_hex(const uint8_t *hex_data, uint32_t size, uint32_t &decode
             if (bin_buf_written > 0)
             {
                 decode_size += bin_buf_written;
-                if (Flash::ERR_NONE != _flash_manager.write(bin_start_address, _bin_buffer, bin_buf_written))
+                if (FlashIface::ERR_NONE != _flash_accessor.write(bin_start_address, _bin_buffer, bin_buf_written))
                 {
                     return false;
                 }

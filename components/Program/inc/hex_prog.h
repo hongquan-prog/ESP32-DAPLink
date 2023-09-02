@@ -17,6 +17,6 @@ private:
 public:
     HexProg();
     HexProg(const std::string &file);
-    bool programing_hex(const target_cfg_t &cfg, const std::string &file);
-    bool programing_hex(const target_cfg_t &cfg);
+    bool programing_hex(const FlashIface::target_cfg_t &cfg, const std::string &file);
+    bool programing_hex(const FlashIface::target_cfg_t &cfg);
 };
