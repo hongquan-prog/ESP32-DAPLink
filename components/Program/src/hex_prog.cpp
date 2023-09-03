@@ -15,7 +15,7 @@ HexProg::HexProg(const std::string &file)
 
 bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::string &file)
 {
-    FRESULT ret = FR_OK;
+    bool ret = false;
     FILE *fp = nullptr;
     size_t rd_size = 0;
     uint32_t wr_addr = 0;
@@ -23,25 +23,24 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
     uint32_t total_size = 0;
     FlashIface::err_t err = FlashIface::ERR_NONE;
 
-    err = _flash_accessor.init(cfg);
-    if (err != FlashIface::ERR_NONE)
-    {
-        return false;
-    }
-
     if (file.empty())
     {
         ESP_LOGE(TAG, "No file specified");
-        return false;
+        goto __exit;
     }
 
     _file_path = file;
     fp = fopen(file.c_str(), "r");
-
-    if (ret != FR_OK)
+    if (!fp)
     {
         ESP_LOGE(TAG, "Failed to open %s", file.c_str());
-        return false;
+        goto __exit;
+    }
+
+    err = _flash_accessor.init(cfg);
+    if (err != FlashIface::ERR_NONE)
+    {
+        goto __exit;
     }
 
     _start_address = 0;
@@ -56,8 +55,7 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
             if (!write_hex(_hex_buffer, rd_size, decode_size))
             {
                 ESP_LOGE(TAG, "Failed to write hex at:%lx", _start_address + wr_addr);
-                _flash_accessor.uninit();
-                return false;
+                goto __exit;
             }
 
             wr_addr += decode_size;
@@ -65,11 +63,17 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
         }
     }
 
-    fclose(fp);
-    _flash_accessor.uninit();
+    ret = true;
     ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), _start_address);
 
-    return true;
+__exit:
+
+    if (fp)
+        fclose(fp);
+
+    _flash_accessor.uninit();
+
+    return ret;
 }
 
 bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg)

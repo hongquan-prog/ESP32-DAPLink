@@ -154,7 +154,7 @@ bool AlgoExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, FlashIface:
     fseek(fp, code_scn.sh_offset, SEEK_SET);
     target.algo_start = _ram_start;
     target.algo_size = sizeof(_flash_bolb_header) + code_scn.sh_size;
-    target.algo_blob = reinterpret_cast<uint32_t *>(malloc(target.algo_size));
+    target.algo_blob = new uint32_t[target.algo_size / sizeof(uint32_t)];
     memcpy(target.algo_blob, _flash_bolb_header, sizeof(_flash_bolb_header));
 
     if (fread(target.algo_blob + sizeof(_flash_bolb_header) / sizeof(uint32_t), 1, code_scn.sh_size, fp) != code_scn.sh_size)
@@ -173,19 +173,20 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
     Elf_Shdr shstr_shdr;
     std::map<std::string, Elf_Sym> sym_table;
     std::map<std::string, Elf_Shdr> prog_table;
-    FlashDevice *device = reinterpret_cast<FlashDevice *>(malloc(sizeof(FlashDevice)));
+    FlashDevice *device = nullptr;
 
     try
     {
-        fp = fopen(path.c_str(), "r");
-        if (fp == nullptr)
-            throw std::ifstream::failure("open file failed");
-
+        device = new FlashDevice;
         memset(&shstr_shdr, 0, sizeof(Elf_Shdr));
         memset(&sym_shdr, 0, sizeof(Elf_Shdr));
         memset(&str_shdr, 0, sizeof(Elf_Shdr));
         memset(device, 0, sizeof(Elf_Shdr));
         memset(&target, 0, sizeof(FlashIface::program_target_t));
+
+        fp = fopen(path.c_str(), "r");
+        if (fp == nullptr)
+            throw std::ifstream::failure("open file failed");
 
         read_elf_hdr(fp, elf_hdr);
         get_shstr_hdr(fp, elf_hdr, shstr_shdr);
@@ -219,7 +220,7 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
         cfg.ram_regions.clear();
         cfg.erase_reset = false;
         cfg.flash_regions.push_back(FlashIface::region_info_t{device->devAdr, device->devAdr + device->szDev, FlashIface::REIGION_DEFAULT, &target});
-        cfg.ram_regions.push_back(FlashIface::region_info_t{target.program_buffer, target.program_buffer + target.program_buffer_size, 0, nullptr});
+        cfg.ram_regions.push_back(FlashIface::region_info_t{_ram_start, target.program_buffer + target.program_buffer_size, 0, nullptr});
         cfg.device_name.replace(0, cfg.device_name.size(), device->devName);
 
         for (int i = 0; i < SECTOR_NUM; i++)
@@ -233,12 +234,20 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
     }
     catch (std::exception &e)
     {
-        ESP_LOGE(TAG, "%s", e.what());
-        free(target.algo_blob);
+        std::cout << e.what() << std::endl;
+
+        if (target.algo_blob)
+        {
+            delete[] target.algo_blob;
+            target.algo_blob = nullptr;
+        }
     }
 
-    fclose(fp);
-    free(device);
+    if (fp)
+        fclose(fp);
+
+    if (device)
+        delete device;
 
     return ret;
 }

@@ -19,35 +19,34 @@ BinProg::BinProg(const std::string &file)
 
 bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr, const std::string &file)
 {
+    bool ret = false;
     size_t rd_size = 0;
-    FRESULT ret = FR_OK;
     uint32_t wr_addr = addr;
     uint32_t total_size = 0;
     FILE *fp = nullptr;
     FlashIface::err_t err = FlashIface::ERR_NONE;
 
-    err = _flash_accessor.init(cfg);
-    if (err != FlashIface::ERR_NONE)
-    {
-        return false;
-    }
-
-    ESP_LOGI(TAG, "Starting to program bin at 0x%lx", addr);
-
     if (file.empty())
     {
         ESP_LOGE(TAG, "No file specified");
-        return false;
+        goto __exit;
     }
 
     _file_path = file;
     fp = fopen(file.c_str(), "r");
-
-    if (ret != FR_OK)
+    if (!fp)
     {
         ESP_LOGE(TAG, "Failed to open %s", file.c_str());
-        return false;
+        goto __exit;
     }
+
+    err = _flash_accessor.init(cfg);
+    if (err != FlashIface::ERR_NONE)
+    {
+        goto __exit;
+    }
+
+    ESP_LOGI(TAG, "Starting to program bin at 0x%lx", addr);
 
     while (feof(fp) == 0)
     {
@@ -67,11 +66,17 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
         }
     }
 
-    fclose(fp);
-    _flash_accessor.uninit();
+    ret = true;
     ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), addr);
 
-    return true;
+__exit:
+
+    if (fp)
+        fclose(fp);
+
+    _flash_accessor.uninit();
+
+    return ret;
 }
 
 bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr)
