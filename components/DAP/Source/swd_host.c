@@ -55,7 +55,7 @@ static uint8_t swd_write_core_register(uint32_t n, uint32_t val);
 void delaymS(uint32_t ms)
 {
 	uint32_t cnt = CPU_CLOCK / 4 / 1000 * ms;
-    
+
 	// To avoid being optimised by the compiler
 	for (volatile uint32_t i = 0; i < cnt; i++)
 	{
@@ -566,7 +566,7 @@ uint8_t swd_write_memory(uint32_t address, uint8_t *data, uint32_t size)
         size--;
     }
 
-    return 1;
+	return 1;
 }
 
 // Execute system call.
@@ -1080,9 +1080,32 @@ uint8_t swd_set_target_state_sw(target_state_t state)
 		break;
 
 	case RESET_RUN:
-		swd_set_target_reset(1);
-		delaymS(20);
-		swd_set_target_reset(0);
+		// Enable debug and halt the core (DHCSR <- 0xA05F0003)
+		if (!swd_write_word(DBG_HCSR, DBGKEY | C_DEBUGEN | C_HALT))
+		{
+			return 0;
+		}
+
+		// Wait until core is halted
+		do
+		{
+			if (!swd_read_word(DBG_HCSR, &val))
+			{
+				return 0;
+			}
+		} while ((val & S_HALT) == 0);
+
+		// Perform a soft reset
+		if (!swd_read_word(NVIC_AIRCR, &val))
+		{
+			return 0;
+		}
+
+		if (!swd_write_word(NVIC_AIRCR, VECTKEY | (val & SCB_AIRCR_PRIGROUP_Msk) | SYSRESETREQ))
+		{
+			return 0;
+		}
+
 		delaymS(20);
 		swd_off();
 		break;
