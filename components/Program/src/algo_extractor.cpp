@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
-#include "esp_log.h"
+#include "log.h"
 #include "algo_extractor.h"
 
 #define TAG "algo_extractor"
@@ -234,7 +234,7 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
     }
     catch (std::exception &e)
     {
-        std::cout << e.what() << std::endl;
+        LOG_ERROR("%s", e.what());
 
         if (target.algo_blob)
         {

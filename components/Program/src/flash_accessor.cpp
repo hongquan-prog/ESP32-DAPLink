@@ -1,6 +1,6 @@
+#include "log.h"
 #include "flash_accessor.h"
 #include <cstring>
-#include "esp_log.h"
 
 #define TAG "flash_accessor"
 #define ROUND_UP(value, boundary) ((value) + ((boundary) - (value)) % (boundary))
@@ -42,7 +42,7 @@ FlashIface::err_t FlashAccessor::flush_current_block(uint32_t addr)
 
     if (!_current_write_block_size)
     {
-        ESP_LOGE(TAG, "Invalid block size");
+        
         return ERR_INTERNAL;
     }
 
@@ -83,7 +83,7 @@ FlashIface::err_t FlashAccessor::setup_next_sector(uint32_t addr)
     status = flash_erase_sector(_current_sector_addr);
     if (ERR_NONE != status)
     {
-        ESP_LOGE(TAG, "Flash sector erase failed");
+        LOG_ERROR("Flash sector erase failed");
         flash_uninit();
         return status;
     }
@@ -117,11 +117,11 @@ FlashIface::err_t FlashAccessor::init(const target_cfg_t &cfg)
     status = flash_init(cfg);
     if (ERR_NONE != status)
     {
-        ESP_LOGE(TAG, "Flash init failed");
+        LOG_ERROR("Flash init failed");
         return status;
     }
 
-    ESP_LOGI(TAG, "Flash init successful");
+    LOG_INFO("Flash init successful");
     _flash_state = FLASH_STATE_OPEN;
 
     return status;

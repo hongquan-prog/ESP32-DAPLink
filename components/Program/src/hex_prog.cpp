@@ -1,5 +1,5 @@
 #include "hex_prog.h"
-#include "esp_log.h"
+#include "log.h"
 
 #define TAG "hex_prog"
 
@@ -25,7 +25,7 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
 
     if (file.empty())
     {
-        ESP_LOGE(TAG, "No file specified");
+        LOG_ERROR("No file specified");
         goto __exit;
     }
 
@@ -33,7 +33,7 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
     fp = fopen(file.c_str(), "r");
     if (!fp)
     {
-        ESP_LOGE(TAG, "Failed to open %s", file.c_str());
+        LOG_ERROR("Failed to open %s", file.c_str());
         goto __exit;
     }
 
@@ -54,7 +54,7 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
         {
             if (!write_hex(_hex_buffer, rd_size, decode_size))
             {
-                ESP_LOGE(TAG, "Failed to write hex at:%lx", _start_address + wr_addr);
+                LOG_ERROR("Failed to write hex at:%lx", _start_address + wr_addr);
                 goto __exit;
             }
 
@@ -64,7 +64,7 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
     }
 
     ret = true;
-    ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), _start_address);
+    LOG_INFO("DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), _start_address);
 
 __exit:
 
@@ -99,7 +99,7 @@ bool HexProg::write_hex(const uint8_t *hex_data, uint32_t size, uint32_t &decode
         if (_start_address == 0 && bin_buf_written)
         {
             _start_address = bin_start_address;
-            ESP_LOGI(TAG, "Starting to program hex at 0x%lx", _start_address);
+            LOG_INFO("Starting to program hex at 0x%lx", _start_address);
         }
 
         // the entire block of hex was decoded. This is a simple state
@@ -146,12 +146,12 @@ bool HexProg::write_hex(const uint8_t *hex_data, uint32_t size, uint32_t &decode
         }
         else if (HEX_PARSE_CKSUM_FAIL == parse_status)
         {
-            ESP_LOGE(TAG, "Checksum failed");
+            LOG_ERROR("Checksum failed");
             return false;
         }
         else if ((HEX_PARSE_UNINIT == parse_status) || (HEX_PARSE_FAILURE == parse_status))
         {
-            ESP_LOGE(TAG, "Failed to parse hex: %d", parse_status);
+            LOG_ERROR("Failed to parse hex: %d", parse_status);
             return false;
         }
     }

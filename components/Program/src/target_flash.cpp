@@ -1,5 +1,5 @@
 #include "target_flash.h"
-#include "esp_log.h"
+#include "log.h"
 #include <cstring>
 
 #define TAG "target_flash"
@@ -137,14 +137,14 @@ FlashIface::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *
     {
         if (!flash_algo)
         {
-            ESP_LOGE(TAG, "No flash algo");
+            LOG_ERROR("No flash algo");
             return ERR_ALGO_MISSING;
         }
 
         status = flash_func_start(FLASH_FUNC_PROGRAM);
         if (status != ERR_NONE)
         {
-            ESP_LOGE(TAG, "Error starting flash function");
+            LOG_ERROR("Error starting flash function");
             return status;
         }
 
@@ -155,14 +155,14 @@ FlashIface::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *
             // Write page to buffer
             if (!_swd->write_memory(flash_algo->program_buffer, (uint8_t *)buf, write_size))
             {
-                ESP_LOGE(TAG, "Error writing flash buffer");
+                LOG_ERROR("Error writing flash buffer");
                 return ERR_ALGO_DATA_SEQ;
             }
 
             // Run flash programming
             if (!_swd->flash_syscall_exec(&flash_algo->sys_call_s, flash_algo->program_page, addr, write_size, flash_algo->program_buffer, 0))
             {
-                ESP_LOGE(TAG, "flash_syscall_exec program page error");
+                LOG_ERROR("flash_syscall_exec program page error");
                 return ERR_WRITE;
             }
 
@@ -195,13 +195,13 @@ FlashIface::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *
 
                     if (!_swd->read_memory(addr, _verify_buf, verify_size))
                     {
-                        ESP_LOGE(TAG, "Error reading flash buffer");
+                        LOG_ERROR("Error reading flash buffer");
                         return ERR_ALGO_DATA_SEQ;
                     }
 
                     if (memcmp(buf, _verify_buf, verify_size) != 0)
                     {
-                        ESP_LOGE(TAG, "Verify error at addr 0x%08lx", addr);
+                        LOG_ERROR("Verify error at addr 0x%08lx", addr);
                         return ERR_WRITE_VERIFY;
                     }
 
@@ -212,7 +212,7 @@ FlashIface::err_t TargetFlash::flash_program_page(uint32_t addr, const uint8_t *
                 }
             }
 
-            ESP_LOGD(TAG, "Write %ld bytes to 0x%08lx", write_size, addr - write_size);
+            // LOG_INFO("Write %ld bytes to 0x%08lx", write_size, addr - write_size);
         }
 
         return ERR_NONE;
@@ -373,11 +373,11 @@ FlashIface::err_t TargetFlash::flash_algo_set(uint32_t addr)
         // Download flash programming algorithm to target
         if (!_swd->write_memory(new_flash_algo->algo_start, (uint8_t *)new_flash_algo->algo_blob, new_flash_algo->algo_size))
         {
-            ESP_LOGE(TAG, "Error writing flash algo");
+            LOG_ERROR("Error writing flash algo");
             return ERR_ALGO_DL;
         }
 
-        ESP_LOGI(TAG, "Flash algo write success");
+        LOG_INFO("Flash algo write success");
         _current_flash_algo = new_flash_algo;
     }
     return ERR_NONE;

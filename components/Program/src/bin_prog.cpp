@@ -1,4 +1,4 @@
-#include "esp_log.h"
+#include "log.h"
 #include "bin_prog.h"
 #include "target_swd.h"
 
@@ -28,7 +28,7 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
 
     if (file.empty())
     {
-        ESP_LOGE(TAG, "No file specified");
+        LOG_ERROR("No file specified");
         goto __exit;
     }
 
@@ -36,7 +36,7 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
     fp = fopen(file.c_str(), "r");
     if (!fp)
     {
-        ESP_LOGE(TAG, "Failed to open %s", file.c_str());
+        LOG_ERROR("Failed to open %s", file.c_str());
         goto __exit;
     }
 
@@ -46,7 +46,7 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
         goto __exit;
     }
 
-    ESP_LOGI(TAG, "Starting to program bin at 0x%lx", addr);
+    LOG_INFO("Starting to program bin at 0x%lx", addr);
 
     while (feof(fp) == 0)
     {
@@ -57,7 +57,7 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
             total_size += rd_size;
             if (FlashIface::ERR_NONE != _flash_accessor.write(wr_addr, _bin_buffer, rd_size))
             {
-                ESP_LOGE(TAG, "Failed to write bin at:%lx", wr_addr);
+                LOG_ERROR("Failed to write bin at:%lx", wr_addr);
                 _flash_accessor.uninit();
                 return false;
             }
@@ -67,7 +67,7 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
     }
 
     ret = true;
-    ESP_LOGI(TAG, "DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), addr);
+    LOG_INFO("DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), addr);
 
 __exit:
 
