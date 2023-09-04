@@ -62,7 +62,7 @@ public:
         uint32_t erase_sector;
         uint32_t program_page;
         uint32_t verify;
-        SWDInface::syscall_t sys_call_s;
+        SWDIface::syscall_t sys_call_s;
         uint32_t program_buffer;
         uint32_t algo_start;
         uint32_t algo_size;
@@ -94,7 +94,7 @@ public:
     } target_cfg_t;
 
     virtual ~FlashIface() = default;
-    virtual void swd_init(SWDInface &swd) = 0;
+    virtual void swd_init(SWDIface &swd) = 0;
     virtual err_t flash_init(const target_cfg_t &cfg) = 0;
     virtual err_t flash_uninit(void) = 0;
     virtual err_t flash_program_page(uint32_t addr, const uint8_t *buf, uint32_t size) = 0;

@@ -51,14 +51,14 @@ FlashIface::err_t TargetFlash::flash_func_start(FlashIface::func_t func_type)
     {
         // Finish the currently active function.
         if (FLASH_FUNC_NOP != _last_func_type && (FLASH_FUNC_NOP == func_type) &&
-            0 == _swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->uninit, _last_func_type, 0, 0, 0))
+            !_swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->uninit, _last_func_type, 0, 0, 0))
         {
             return ERR_UNINIT;
         }
 
         // Start a new function.
         if (FLASH_FUNC_NOP != func_type && (FLASH_FUNC_NOP == _last_func_type) &&
-            0 == _swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->init, _flash_start_addr, 0, func_type, 0))
+            !_swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->init, _flash_start_addr, 0, func_type, 0))
         {
             return ERR_INIT;
         }
@@ -69,7 +69,7 @@ FlashIface::err_t TargetFlash::flash_func_start(FlashIface::func_t func_type)
     return ERR_NONE;
 }
 
-void TargetFlash::swd_init(SWDInface &swd)
+void TargetFlash::swd_init(SWDIface &swd)
 {
     _swd = &swd;
 }
@@ -80,7 +80,7 @@ FlashIface::err_t TargetFlash::flash_init(const target_cfg_t &cfg)
     _last_func_type = FLASH_FUNC_NOP;
     _current_flash_algo = nullptr;
 
-    if (0 == _swd->set_target_state_sw(SWDInface::TARGET_RESET_PROGRAM))
+    if (!_swd->set_target_state(SWDIface::TARGET_RESET_PROGRAM))
     {
         return ERR_RESET;
     }
@@ -110,11 +110,11 @@ FlashIface::err_t TargetFlash::flash_uninit(void)
         }
 
         // Resume the target if configured to do so
-        _swd->set_target_state_sw(SWDInface::TARGET_RESET_RUN);
+        _swd->set_target_state(SWDIface::TARGET_RESET_RUN);
 
         // Check to see if anything needs to be done after programming.
         // This is usually a no-op for most targets.
-        _swd->set_target_state_sw(SWDInface::TARGET_POST_FLASH_RESET);
+        _swd->set_target_state(SWDIface::TARGET_POST_FLASH_RESET);
 
         _flash_state = FLASH_STATE_CLOSED;
         _swd->off();
@@ -248,7 +248,7 @@ FlashIface::err_t TargetFlash::flash_erase_sector(uint32_t addr)
             return status;
         }
 
-        if (0 == _swd->flash_syscall_exec(&flash->sys_call_s, flash->erase_sector, addr, 0, 0, 0))
+        if (!_swd->flash_syscall_exec(&flash->sys_call_s, flash->erase_sector, addr, 0, 0, 0))
         {
             return ERR_ERASE_SECTOR;
         }
@@ -272,7 +272,7 @@ FlashIface::err_t TargetFlash::flash_erase_chip(void)
         {
             new_flash_algo = get_flash_algo(flash_region.start);
 
-            if ((new_flash_algo == NULL))
+            if ((new_flash_algo == nullptr))
             {
                 continue;
             }
@@ -289,7 +289,7 @@ FlashIface::err_t TargetFlash::flash_erase_chip(void)
                 return status;
             }
 
-            if (0 == _swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->erase_chip, 0, 0, 0, 0))
+            if (!_swd->flash_syscall_exec(&_current_flash_algo->sys_call_s, _current_flash_algo->erase_chip, 0, 0, 0, 0))
             {
                 return ERR_ERASE_ALL;
             }
@@ -358,7 +358,7 @@ FlashIface::err_t TargetFlash::flash_algo_set(uint32_t addr)
 {
     const program_target_t *new_flash_algo = get_flash_algo(addr);
 
-    if (new_flash_algo == NULL)
+    if (!new_flash_algo)
     {
         return ERR_ALGO_MISSING;
     }
@@ -371,7 +371,7 @@ FlashIface::err_t TargetFlash::flash_algo_set(uint32_t addr)
             return status;
         }
         // Download flash programming algorithm to target
-        if (0 == _swd->write_memory(new_flash_algo->algo_start, (uint8_t *)new_flash_algo->algo_blob, new_flash_algo->algo_size))
+        if (!_swd->write_memory(new_flash_algo->algo_start, (uint8_t *)new_flash_algo->algo_blob, new_flash_algo->algo_size))
         {
             ESP_LOGE(TAG, "Error writing flash algo");
             return ERR_ALGO_DL;

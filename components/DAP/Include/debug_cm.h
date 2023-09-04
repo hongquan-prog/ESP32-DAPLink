@@ -5,9 +5,6 @@
 #ifndef DEBUG_CM_H
 #define DEBUG_CM_H
 
-#include "DAP.h"
-
-
 // Abort Register definitions
 #define DAPABORT       0x00000001  // DAP Abort
 #define STKCMPCLR      0x00000002  // Clear STICKYCMP Flag (SW Only)

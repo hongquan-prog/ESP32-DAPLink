@@ -1,5 +1,6 @@
 set(COMPONENT_ADD_INCLUDEDIRS "inc/")
 set(COMPONENT_SRCS 
+            "src/swd_iface.cpp"
             "src/target_swd.cpp"
             "src/target_flash.cpp"
             "src/flash_accessor.cpp"

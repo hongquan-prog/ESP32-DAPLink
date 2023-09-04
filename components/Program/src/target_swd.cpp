@@ -1,60 +1,32 @@
 #include "swd_host.h"
 #include "target_swd.h"
+#include "DAP.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-TargetSWD &TargetSWD::get_instance()
+void TargetSWD::msleep(uint32_t ms)
 {
-    static TargetSWD instance;
-    return instance;
+    vTaskDelay(ms / portTICK_PERIOD_MS);
 }
 
-uint8_t TargetSWD::init(void)
+bool TargetSWD::init(void)
 {
     return swd_init();
 }
 
-uint8_t TargetSWD::off(void)
+bool TargetSWD::off(void)
 {
     return swd_off();
 }
 
-uint8_t TargetSWD::init_debug(void)
+SWDIface::transfer_err_def TargetSWD::transer(uint32_t request, uint32_t *data)
 {
-    return swd_init_debug();
+    return static_cast<SWDIface::transfer_err_def>(SWD_Transfer(request, data));
 }
 
-uint8_t TargetSWD::read_dp(uint8_t adr, uint32_t *val)
+void TargetSWD::swj_sequence(uint32_t count, const uint8_t *data)
 {
-    return swd_read_dp(adr, val);
-}
-
-uint8_t TargetSWD::write_dp(uint8_t adr, uint32_t val)
-{
-    return swd_write_dp(adr, val);
-}
-
-uint8_t TargetSWD::read_ap(uint32_t adr, uint32_t *val)
-{
-    return swd_read_ap(adr, val);
-}
-
-uint8_t TargetSWD::write_ap(uint32_t adr, uint32_t val)
-{
-    return swd_write_ap(adr, val);
-}
-
-uint8_t TargetSWD::read_memory(uint32_t address, uint8_t *data, uint32_t size)
-{
-    return swd_read_memory(address, data, size);
-}
-
-uint8_t TargetSWD::write_memory(uint32_t address, uint8_t *data, uint32_t size)
-{
-    return swd_write_memory(address, data, size);
-}
-
-uint8_t TargetSWD::flash_syscall_exec(const SWDInface::syscall_t *syscall_param, uint32_t entry, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4)
-{
-    return swd_flash_syscall_exec(reinterpret_cast<const ::program_syscall_t *>(syscall_param), entry, arg1, arg2, arg3, arg4);
+    SWJ_Sequence(count, data);
 }
 
 void TargetSWD::set_target_reset(uint8_t asserted)
@@ -62,12 +34,8 @@ void TargetSWD::set_target_reset(uint8_t asserted)
     swd_set_target_reset(asserted);
 }
 
-uint8_t TargetSWD::set_target_state_hw(target_state_t state)
+TargetSWD &TargetSWD::get_instance()
 {
-    return swd_set_target_state_hw(static_cast<::target_state_t>(state));
-}
-
-uint8_t TargetSWD::set_target_state_sw(target_state_t state)
-{
-    return swd_set_target_state_sw(static_cast<::target_state_t>(state));
+    static TargetSWD instance;
+    return instance;
 }
