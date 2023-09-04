@@ -41,8 +41,6 @@ This information includes:
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
-#include "swd_host.h"
 
 #if defined(__GNUC__) && !defined(__STATIC_FORCEINLINE)
 #define __STATIC_FORCEINLINE static inline __attribute__((always_inline))

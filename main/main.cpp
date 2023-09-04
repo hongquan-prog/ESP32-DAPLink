@@ -95,11 +95,11 @@ extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_r
 
 extern "C" void app_main(void)
 {
-    static HexProg programmer;
-    static AlgoExtractor extractor;
-    static FlashIface::program_target_t target;
-    static FlashIface::target_cfg_t cfg;
-    TickType_t start_time = 0;
+    // static HexProg programmer;
+    // static AlgoExtractor extractor;
+    // static FlashIface::program_target_t target;
+    // static FlashIface::target_cfg_t cfg;
+    // TickType_t start_time = 0;
 
     const tinyusb_config_t tusb_cfg = {
         .device_descriptor = &descriptor_config,
@@ -128,38 +128,38 @@ extern "C" void app_main(void)
     cdc_uart_register_rx_callback(cdc_uart_rx_callback, (void *)TINYUSB_CDC_ACM_0);
     ESP_LOGI(TAG, "USB initialization DONE");
 
-    extractor.extract("/data/algo/GD/F4/GD32F4xx_1MB.FLM", target, cfg);
-    printf("Device Name and Description: %s\n", cfg.device_name.c_str());
-    for (int i = 0; i < cfg.sector_info.size(); i++)
-    {
-        int sec_num = (i != (cfg.sector_info.size() - 1)) ? ((cfg.sector_info[i + 1].start - cfg.sector_info[i].start) / cfg.sector_info[i].size) : ((cfg.flash_regions[0].end - cfg.sector_info[i].start) / cfg.sector_info[i].size);
-        printf("Sector info %d  start addr: 0x%lx, secrot size: 0x%lx * %d\n", i, cfg.sector_info[i].start, cfg.sector_info[i].size, sec_num);
-    }
+    // extractor.extract("/data/algo/GD/F4/GD32F4xx_1MB.FLM", target, cfg);
+    // printf("Device Name and Description: %s\n", cfg.device_name.c_str());
+    // for (int i = 0; i < cfg.sector_info.size(); i++)
+    // {
+    //     int sec_num = (i != (cfg.sector_info.size() - 1)) ? ((cfg.sector_info[i + 1].start - cfg.sector_info[i].start) / cfg.sector_info[i].size) : ((cfg.flash_regions[0].end - cfg.sector_info[i].start) / cfg.sector_info[i].size);
+    //     printf("Sector info %d  start addr: 0x%lx, secrot size: 0x%lx * %d\n", i, cfg.sector_info[i].start, cfg.sector_info[i].size, sec_num);
+    // }
 
-    for (int i = 0; i < cfg.flash_regions.size(); i++)
-    {
-        if (cfg.flash_regions[i].start == 0 && cfg.flash_regions[i].end == 0)
-            break;
+    // for (int i = 0; i < cfg.flash_regions.size(); i++)
+    // {
+    //     if (cfg.flash_regions[i].start == 0 && cfg.flash_regions[i].end == 0)
+    //         break;
 
-        printf("Flash region %d addr: 0x%lx, end: 0x%lx\n", i, cfg.flash_regions[i].start, cfg.flash_regions[i].end);
-    }
+    //     printf("Flash region %d addr: 0x%lx, end: 0x%lx\n", i, cfg.flash_regions[i].start, cfg.flash_regions[i].end);
+    // }
 
-    for (int i = 0; i < cfg.ram_regions.size(); i++)
-    {
-        if (cfg.ram_regions[i].start == 0 && cfg.ram_regions[i].end == 0)
-            break;
+    // for (int i = 0; i < cfg.ram_regions.size(); i++)
+    // {
+    //     if (cfg.ram_regions[i].start == 0 && cfg.ram_regions[i].end == 0)
+    //         break;
 
-        printf("RAM region %d addr: 0x%lx, end: 0x%lx\n", i, cfg.ram_regions[i].start, cfg.ram_regions[i].end);
-    }
+    //     printf("RAM region %d addr: 0x%lx, end: 0x%lx\n", i, cfg.ram_regions[i].start, cfg.ram_regions[i].end);
+    // }
 
-    while (1)
-    {
-        start_time = xTaskGetTickCount();
-        programmer.programing_hex(cfg, "/data/GPIO-LED.hex");
-        ESP_LOGI(TAG, "Elapsed time %ld ms", (xTaskGetTickCount() - start_time) * portTICK_PERIOD_MS);
-        vTaskDelay(5000);
-    }
+    // while (1)
+    // {
+    //     start_time = xTaskGetTickCount();
+    //     programmer.programing_hex(cfg, "/data/GPIO-LED.hex");
+    //     ESP_LOGI(TAG, "Elapsed time %ld ms", (xTaskGetTickCount() - start_time) * portTICK_PERIOD_MS);
+    //     vTaskDelay(5000);
+    // }
 
-    if (target.algo_blob)
-        delete[] target.algo_blob;
+    // if (target.algo_blob)
+    //     delete[] target.algo_blob;
 }
