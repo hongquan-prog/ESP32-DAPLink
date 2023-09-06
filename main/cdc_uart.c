@@ -6,8 +6,7 @@
 typedef struct
 {
     uart_port_t uart;
-    cdc_uart_rx_callback_t callback;
-    void *usr_data;
+    const cdc_uart_cb_t *cb;
 } cdc_uart_t;
 
 static cdc_uart_t s_cdc_uart = {0};
@@ -27,10 +26,12 @@ bool cdc_uart_init(uart_port_t uart, gpio_num_t tx_pin, gpio_num_t rx_pin, int b
     };
 
     s_cdc_uart.uart = uart;
-    ret = (ESP_OK == uart_driver_install(s_cdc_uart.uart, 2 * 1024, 0, 0, NULL, 0));
+    ret = (ESP_OK == uart_driver_install(s_cdc_uart.uart, 2 * 1024, 2 * 1024, 0, NULL, 0));
     ret = ret && (ESP_OK == uart_param_config(s_cdc_uart.uart, &uart_config));
     ret = ret && (ESP_OK == uart_set_pin(s_cdc_uart.uart, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-    xTaskCreate(cdc_uart_rx_task, "cdc_uart_rx_task", 4096, (void *)&s_cdc_uart, 10, NULL);
+
+    if(ret)
+        xTaskCreate(cdc_uart_rx_task, "cdc_uart_rx_task", 4096, (void *)&s_cdc_uart, 10, NULL);
 
     return ret;
 }
@@ -50,12 +51,11 @@ bool cdc_uart_write(const void *src, size_t size)
     return (0 <= uart_write_bytes(s_cdc_uart.uart, src, size));
 }
 
-void cdc_uart_register_rx_callback(cdc_uart_rx_callback_t callback, void *usr_data)
+void cdc_uart_register_rx_callback(const cdc_uart_cb_t *cb)
 {
-    if (callback)
+    if (cb)
     {
-        s_cdc_uart.usr_data = usr_data;
-        s_cdc_uart.callback = callback;
+        s_cdc_uart.cb = cb;
     }
 }
 
@@ -66,6 +66,7 @@ static void cdc_uart_rx_task(void *param)
     int offset = 0;
     int need = 0;
     int read = 0;
+    const cdc_uart_cb_t *cb = NULL;
     uint8_t data[RX_BUF_SIZE] = {0};
     cdc_uart_t *cdc_uart = (cdc_uart_t *)param;
 
@@ -84,9 +85,11 @@ static void cdc_uart_rx_task(void *param)
 
             if ((offset == RX_BUF_SIZE) || ((read == 0) && (offset > 0)))
             {
-                if (cdc_uart->callback)
+                cb = cdc_uart->cb;
+
+                if (cb)
                 {
-                    cdc_uart->callback(cdc_uart->uart, cdc_uart->usr_data, data, offset);
+                    cb->func(cdc_uart->uart, cb->usr_data, data, offset);
                 }
 
                 offset = 0;
