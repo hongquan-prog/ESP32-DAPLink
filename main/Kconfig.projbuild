@@ -21,4 +21,12 @@ choice MSC_STORAGE_MEDIA
         depends on TINYUSB_MSC_ENABLED
 endchoice
 
+config HTTPD_MAX_OPENED_SOCKETS
+    int "The max opened sockets of http server"
+    default 5
+
+config HTTPD_RESP_BUF_SIZE
+    int "The size of http server to replay"
+    default 512
+
 endmenu

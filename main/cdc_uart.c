@@ -1,3 +1,13 @@
+/*
+ * Copyright (c) 2023-2023, lihongquan
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2023-9-8      lihongquan   add license declaration
+ */
+
 #include "cdc_uart.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -59,6 +69,11 @@ void cdc_uart_register_rx_callback(const cdc_uart_cb_t *cb)
     }
 }
 
+const cdc_uart_cb_t *cdc_uart_get_rx_callback()
+{
+    return s_cdc_uart.cb;
+}
+
 static void cdc_uart_rx_task(void *param)
 {
 #define RX_BUF_SIZE 64
@@ -89,7 +104,7 @@ static void cdc_uart_rx_task(void *param)
 
                 if (cb)
                 {
-                    cb->func(cdc_uart->uart, cb->usr_data, data, offset);
+                    cb->func(cb->usr_data, data, offset);
                 }
 
                 offset = 0;

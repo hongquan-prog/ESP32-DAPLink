@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>WebSerial</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type="text/css">
         div {
@@ -38,7 +39,8 @@
         }
 
         .button-width {
-            width: 10ch; /* 设置为你想要的宽度 */
+            width: 10ch;
+            /* 设置为你想要的宽度 */
         }
 
         .text-center {
@@ -101,7 +103,7 @@
             border-width: 0.5rem;
             border-radius: 1rem;
             background-color: #fff;
-            max-width: 45rem;
+            max-width: 100rem;
             width: calc(100% - 1rem);
             font-size: medium;
         }
@@ -114,6 +116,12 @@
             border: 0px;
             color: #fff;
             background-color: #0067f4;
+        }
+
+        .pannel button:active {
+            background-color: #004cb3;
+            /* Darker blue */
+            color: #fff;
         }
 
         .pannel button:disabled {
@@ -137,7 +145,8 @@
             background-color: #5a6169;
         }
 
-        #baudrate-select, #command-text {
+        #baudrate-select,
+        #command-text {
             border: 2px solid #0067f4;
             border-radius: 4px;
             padding: 4px;
@@ -175,7 +184,7 @@
         <h1>WebSerial</h1>
         <div class="pannel shadow grid gap-2">
             <div id="control-button">
-                <button class="rounded shadow" onclick="terminalClean()">
+                <button class="rounded shadow" onclick="terminalClean()" id="clean-button">
                     <svg viewBox="64 64 896 896" focusable="false" data-icon="delete" width="1em" height="1em"
                         fill="currentColor" aria-hidden="true">
                         <path
@@ -183,7 +192,7 @@
                         </path>
                     </svg>
                 </button>
-                <button class="rounded shadow" onclick="enableFlowLock=!enableFlowLock">
+                <button class="rounded shadow" id="lock-button">
                     <svg viewBox="64 64 896 896" focusable="false" data-icon="lock" width="1em" height="1em"
                         fill="currentColor" aria-hidden="true">
                         <path
@@ -191,7 +200,7 @@
                         </path>
                     </svg>
                 </button>
-                <button class="rounded shadow" onclick="enableTimestamp=!enableTimestamp">
+                <button class="rounded shadow" id="timestamp-button">
                     <svg viewBox="64 64 896 896" focusable="false" data-icon="clock-circle" width="1em" height="1em"
                         fill="currentColor" aria-hidden="true">
                         <path
@@ -206,7 +215,8 @@
             <textarea class="w-full rounded" title="record" id="record" cols="40" rows="50" disabled></textarea>
             <div class="flex w-full grid gap-2" id="terminal">
                 <input type="text" name="cmd" id="command-text" class="grow rounded" />
-                <button class="grid justify-items-center rounded shadow button-width" id="command-button"> SEND </button>
+                <button class="grid justify-items-center rounded shadow button-width" id="command-button"> SEND
+                </button>
             </div>
             <div class="flex w-full grid gap-2" id="terminal">
                 <select name="baudrate" id="baudrate-select" class="grow rounded">
@@ -239,27 +249,57 @@
     </div>
 </body>
 <script>
-    let gateway = `ws://${window.location.host+window.location.pathname}ws`;
     let websocket;
     let textArea = document.getElementById("record");
     let enableFlowLock = false;
-    let enableTimestamp = false;
+    let enableTimestamp = true;
+    let cache = '';
+    let timeoutId = null;
+    let timestamp = '';
 
     initWebPage();
+
+    function lockClicked(btn) {
+        enableFlowLock = !enableFlowLock;
+
+        if (enableFlowLock) {
+            this.style.backgroundColor = '#0067f4';
+        } else {
+            this.style.backgroundColor = '#5a6169';
+        }
+    }
+
+    function timestampClicked(btn) {
+        enableTimestamp = !enableTimestamp;
+
+        if (enableTimestamp) {
+            this.style.backgroundColor = '#0067f4';
+        } else {
+            this.style.backgroundColor = '#5a6169';
+        }
+    }
 
     function initWebPage() {
         document.getElementById("command-button").disabled = true;
         document.getElementById("command-text").disabled = true;
-        document.getElementById("baudrate-text").disabled = true;
+        document.getElementById("baudrate-select").disabled = true;
+        document.getElementById("baudrate-button").disabled = true;
+        document.getElementById("lock-button").addEventListener('click', lockClicked);
+
+        document.getElementById("timestamp-button").addEventListener('click', timestampClicked);
+        if (enableTimestamp)
+            document.getElementById("timestamp-button").style.backgroundColor = '#0067f4';
+
+        document.getElementById("clean-button").style.backgroundColor = '#0067f4';
         terminalWrite("[WebSerial] Connecting...\n");
-        initWebSocket();
         initButton();
         trapEnterKeyPress();
+        initWebSocket();
     }
 
     function initWebSocket() {
         console.log("Trying to open a WebSocket connection...");
-        websocket = new WebSocket(gateway);
+        websocket = new WebSocket('ws://' + location.hostname + ':80/webserial');
         websocket.onopen = onOpen;
         websocket.onclose = onClose;
         websocket.onmessage = onMessage;
@@ -292,6 +332,8 @@
         terminalWrite("[WebSerial] Connected...\n");
         document.getElementById("command-button").disabled = false;
         document.getElementById("command-text").disabled = false;
+        document.getElementById("baudrate-select").disabled = false;
+        document.getElementById("baudrate-button").disabled = false;
     }
 
     function onClose(event) {
@@ -300,20 +342,49 @@
     }
 
     function onMessage(event) {
-        console.log("Data Received:");
-        console.log(event.data);
         terminalWrite(event.data);
     }
 
-    function terminalWrite(raw) {
-        console.log(enableTimestamp);
-        if (enableTimestamp) {
-            let now = new Date();
-            raw = "[" + now.toLocaleTimeString() + "] " + raw;
+    function terminamWriteLine(line) {
+
+        if (line.trim() !== '') {
+            line = timestamp + line + "\n";
+            textArea.value += line;
+
+            if (!enableFlowLock) {
+                textArea.scrollTop = textArea.scrollHeight;
+            }
         }
-        textArea.value += raw;
-        if (!enableFlowLock) {
-            textArea.scrollTop = textArea.scrollHeight;
+    }
+
+    function terminalWrite(raw) {
+        let now = new Date();
+        timestamp = "[" + now.toLocaleTimeString() + "." + now.getMilliseconds().toString().padStart(3, '0') + "] ";
+
+        if (enableTimestamp) {
+            cache += raw;
+
+            if (cache.includes('\n')) {
+                let lines = cache.split('\n');
+                cache = lines.pop();
+
+                lines.forEach(line => {
+                    terminamWriteLine(line);
+                });
+            }
+
+            if (cache !== '') {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    terminamWriteLine(cache);
+                    cache = '';
+                }, 100);
+            }
+        } else {
+            textArea.value += raw;
+            if (!enableFlowLock) {
+                textArea.scrollTop = textArea.scrollHeight;
+            }
         }
     }
 
@@ -333,7 +404,7 @@
         var xhr = new XMLHttpRequest();
         xhr.open("POST", "/api/set-baudrate", true);
         xhr.setRequestHeader("Content-Type", "application/json");
-        xhr.onreadystatechange = function() {
+        xhr.onreadystatechange = function () {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 console.log("Baudrate set successfully");
             }

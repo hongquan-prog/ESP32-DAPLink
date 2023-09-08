@@ -1,3 +1,13 @@
+/*
+ * Copyright (c) 2023-2023, lihongquan
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2023-9-8      lihongquan   add license declaration
+ */
+
 #pragma once
 
 #include "driver/uart.h"
@@ -7,7 +17,7 @@
 extern "C" {
 #endif
 
-typedef void (*cdc_uart_rx_callback_t)(int uart, void *usr_data, uint8_t *data, size_t size);
+typedef void (*cdc_uart_rx_callback_t)(void *usr_data, uint8_t *data, size_t size);
 
 typedef struct
 {
@@ -19,6 +29,7 @@ bool cdc_uart_init(uart_port_t uart, gpio_num_t tx_pin, gpio_num_t rx_pin, int b
 bool cdc_uart_set_baudrate(uint32_t baudrate);
 bool cdc_uart_get_baudrate(uint32_t *baudrate);
 bool cdc_uart_write(const void *src, size_t size);
+const cdc_uart_cb_t *cdc_uart_get_rx_callback();
 void cdc_uart_register_rx_callback(const cdc_uart_cb_t *cb);
 
 #ifdef __cplusplus
