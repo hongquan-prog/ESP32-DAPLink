@@ -26,6 +26,8 @@ extern "C"
     esp_err_t web_send_to_uart(httpd_req_t *req);
     esp_err_t web_index_handler(httpd_req_t *req);
     esp_err_t web_favicon_handler(httpd_req_t *req);
+    esp_err_t web_program_handler(httpd_req_t *req);
+    esp_err_t web_flash_handler(httpd_req_t *req);
 
 #ifdef __cplusplus
 }

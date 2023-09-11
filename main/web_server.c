@@ -18,6 +18,8 @@ static web_data_t s_web_data = {0};
 static const httpd_uri_t s_index = {"/", HTTP_GET, web_index_handler, &s_web_data, false, false, NULL};
 static const httpd_uri_t s_webserial = {"/webserial", HTTP_GET, web_send_to_uart, &s_web_data, true, true, NULL};
 static const httpd_uri_t s_favicon = {"/favicon.ico", HTTP_GET, web_favicon_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_get_program = {"/program", HTTP_GET, web_program_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_post_program = {"/program", HTTP_POST, web_flash_handler, &s_web_data, false, false, NULL};
 
 bool web_server_init(httpd_handle_t *server)
 {
@@ -41,6 +43,8 @@ bool web_server_init(httpd_handle_t *server)
     httpd_register_uri_handler(s_web_data.server, &s_webserial);
     httpd_register_uri_handler(s_web_data.server, &s_index);
     httpd_register_uri_handler(s_web_data.server, &s_favicon);
+    httpd_register_uri_handler(s_web_data.server, &s_get_program);
+    httpd_register_uri_handler(s_web_data.server, &s_post_program);
     *server = s_web_data.server;
 
     return true;
