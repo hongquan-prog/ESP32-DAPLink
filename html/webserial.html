@@ -299,7 +299,7 @@
 
     function initWebSocket() {
         console.log("Trying to open a WebSocket connection...");
-        websocket = new WebSocket('ws://' + location.hostname + ':80/webserial');
+        websocket = new WebSocket('ws://' + location.hostname + ':80/webserial_socket');
         websocket.onopen = onOpen;
         websocket.onclose = onClose;
         websocket.onmessage = onMessage;

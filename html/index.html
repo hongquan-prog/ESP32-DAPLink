@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>ESP32 DAPLink</title>
+    <style>
+        /* 样式可以根据需要进行自定义 */
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: top;
+            justify-content: top;
+            height: 100vh;
+            /* 设置body元素的高度为视口高度 */
+            margin: 0;
+            /* 去除body的默认边距 */
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .nav-button {
+            display: block;
+            margin: 10px;
+            padding: 10px;
+            width: 200px;
+            background-color: #ff;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            color: #333;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            /* New styles */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            background-image: linear-gradient(to bottom, #f0f0f0, #e0e0e0);
+        }
+
+        .nav-button:hover {
+            background-color: #ccc;
+            /* New hover styles */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background-image: linear-gradient(to bottom, #e0e0e0, #d0d0d0);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>ESP32 DAPLink</h1>
+        <a class="nav-button" href="/program">Program Device</a>
+        <a class="nav-button" href="/webserial">WebSerial</a>
+        <a class="nav-button" href="/algorithm">Algorithm</a>
+        <a class="nav-button" href="/program">Program</a>
+        <a class="nav-button" href="/upgrade">Upgrade</a>
+        <a class="nav-button" href="/upgrade">Web Resource</a>
+    </div>
+    <script>
+        // 如果你想在点击链接后执行一些JavaScript代码，可以在这里添加
+    </script>
+</body>
+
+</html>

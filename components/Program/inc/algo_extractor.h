@@ -28,7 +28,6 @@ private:
 
     static const std::vector<std::string> _function_list;
     static const uint32_t _flash_bolb_header[8];
-    static constexpr uint32_t _ram_start = 0x20000000;
     static constexpr uint32_t _stack_size = 0x800;
 
     bool read_string(FILE *fp, Elf_Shdr &str_tab_hdr, uint32_t offset, std::string &str);
@@ -44,5 +43,5 @@ private:
 
 public:
     AlgoExtractor();
-    bool extract(const std::string &path, FlashIface::program_target_t &target, FlashIface::target_cfg_t &cfg);
+    bool extract(const std::string &path, FlashIface::program_target_t &target, FlashIface::target_cfg_t &cfg, uint32_t ram_begin = 0x20000000);
 };

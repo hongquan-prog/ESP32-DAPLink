@@ -161,7 +161,6 @@ bool AlgoExtractor::extract_flash_device(FILE *fp, Elf_Sym &sym, Elf_Shdr &shdr,
 bool AlgoExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, FlashIface::program_target_t &target)
 {
     fseek(fp, code_scn.sh_offset, SEEK_SET);
-    target.algo_start = _ram_start;
     target.algo_size = sizeof(_flash_bolb_header) + code_scn.sh_size;
     target.algo_blob = new uint32_t[target.algo_size / sizeof(uint32_t)];
     memcpy(target.algo_blob, _flash_bolb_header, sizeof(_flash_bolb_header));
@@ -172,7 +171,7 @@ bool AlgoExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, FlashIface:
     return true;
 }
 
-bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_t &target, FlashIface::target_cfg_t &cfg)
+bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_t &target, FlashIface::target_cfg_t &cfg, uint32_t ram_start)
 {
     bool ret = false;
     FILE *fp = nullptr;
@@ -195,7 +194,7 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
 
         fp = fopen(path.c_str(), "r");
         if (fp == nullptr)
-            throw std::ifstream::failure("open file failed");
+            throw std::ifstream::failure("open file failed: " + path);
 
         read_elf_hdr(fp, elf_hdr);
         get_shstr_hdr(fp, elf_hdr, shstr_shdr);
@@ -207,6 +206,7 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
         read_symbol_info(fp, str_shdr, sym_shdr, str_shdr, sym_table);
         extract_flash_device(fp, sym_table["FlashDevice"], prog_table["DevDscr"], *device);
         extract_flash_algo(fp, prog_table["PrgCode"], target);
+        target.algo_start = ram_start;
 
         /* 在 DAPLink 中，static_base 是指程序的静态基地址（Static Base Address）。静态基地址是一个指针，指向程序的全局变量和静态变量的起始位置。 */
         target.sys_call_s.static_base = target.algo_start + prog_table["PrgCode"].sh_size + sizeof(_flash_bolb_header);
@@ -229,7 +229,7 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
         cfg.ram_regions.clear();
         cfg.erase_reset = false;
         cfg.flash_regions.push_back(FlashIface::region_info_t{device->devAdr, device->devAdr + device->szDev, FlashIface::REIGION_DEFAULT, &target});
-        cfg.ram_regions.push_back(FlashIface::region_info_t{_ram_start, target.program_buffer + target.program_buffer_size, 0, nullptr});
+        cfg.ram_regions.push_back(FlashIface::region_info_t{ram_start, target.program_buffer + target.program_buffer_size, 0, nullptr});
         cfg.device_name.replace(0, cfg.device_name.size(), device->devName);
 
         for (int i = 0; i < SECTOR_NUM; i++)
@@ -249,6 +249,7 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
         {
             delete[] target.algo_blob;
             target.algo_blob = nullptr;
+            printf("free\n");
         }
     }
 

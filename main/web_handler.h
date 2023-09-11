@@ -23,9 +23,12 @@ extern "C"
 #endif
 
     void web_send_to_clients(void *context, uint8_t *data, size_t size);
+    esp_err_t web_serial_handler(httpd_req_t *req);
     esp_err_t web_send_to_uart(httpd_req_t *req);
     esp_err_t web_index_handler(httpd_req_t *req);
     esp_err_t web_favicon_handler(httpd_req_t *req);
+    esp_err_t web_program_handler(httpd_req_t *req);
+    esp_err_t web_flash_handler(httpd_req_t *req);
 
 #ifdef __cplusplus
 }

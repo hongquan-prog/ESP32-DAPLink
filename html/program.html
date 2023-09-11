@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Program Device</title>
+    <style>
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            display: flex;
+            height: 90%;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .content {
+            width: 600px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-align: left;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .form-group button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("program-button").addEventListener('click', program);
+        function program() {
+            var flash_addr = parseInt(document.getElementById("flash-address").value, 16);
+            var ram_addr = parseInt(document.getElementById("ram-address").value, 16);
+            var algo = document.getElementById("algorithm").value;
+            var program = document.getElementById("program").value;
+            var program_suffix = program.split('.').pop();
+            var xhr = new XMLHttpRequest();
+
+            if (isNaN(flash_addr) && program_suffix == "bin") {
+                alert("二进制文件必须提供Flash写入地址");
+                return;
+            }
+
+            xhr.open("POST", "/program", true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    confirm("指令发送成功")
+                }
+            };
+
+            xhr.send(JSON.stringify({
+                flash_addr: flash_addr,
+                ram_addr: ram_addr,
+                algorithm: algo,
+                program: program
+            }));
+
+            console.log(JSON.stringify({
+                flash_addr: flash_addr,
+                ram_addr: ram_addr,
+                algorithm: algo,
+                program: program
+            }));
+        }
+    });
+</script>
