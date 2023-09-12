@@ -17,9 +17,6 @@ void usb_cdc_send_to_host(void *context, uint8_t *data, size_t size)
 {
     ESP_LOGD(TAG, "data %p, size %d", data, size);
 
-    if (!context)
-        return;
-
     if (tud_cdc_n_connected((int)context))
     {
         tinyusb_cdcacm_write_queue((tinyusb_cdcacm_itf_t)context, data, size);
@@ -27,7 +24,7 @@ void usb_cdc_send_to_host(void *context, uint8_t *data, size_t size)
     }
 }
 
-void usb_cdc_set_line_codinig_slot(int itf, cdcacm_event_t *event)
+void usb_cdc_set_line_codinig(int itf, cdcacm_event_t *event)
 {
     cdc_line_coding_t const *coding = event->line_coding_changed_data.p_line_coding;
     uint32_t baudrate = 0;

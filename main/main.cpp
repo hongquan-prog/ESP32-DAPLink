@@ -28,7 +28,6 @@
 #include "msc_disk.h"
 #include "esp_netif.h"
 #include "web_handler.h"
-#include "uart_handler.h"
 #include "usb_cdc_handler.h"
 #include "esp_http_server.h"
 #include "web_server.h"
@@ -114,53 +113,6 @@ static void connect_handler(void *arg, esp_event_base_t event_base, int32_t even
     web_server_init((httpd_handle_t *)arg);
 }
 
-// #include "hex_prog.h"
-// #include "algo_extractor.h"
-
-// extern "C" void offline_program_test()
-// {
-//     TickType_t start_time = 0;
-//     static HexProg programmer;
-//     static AlgoExtractor extractor;
-//     static FlashIface::program_target_t target;
-//     static FlashIface::target_cfg_t cfg;
-
-//     extractor.extract("/data/algo/ST/H7/STM32H7x_128k.FLM", target, cfg);
-//     printf("Device Name and Description: %s\n", cfg.device_name.c_str());
-//     for (int i = 0; i < cfg.sector_info.size(); i++)
-//     {
-//         int sec_num = (i != (cfg.sector_info.size() - 1)) ? ((cfg.sector_info[i + 1].start - cfg.sector_info[i].start) / cfg.sector_info[i].size) : ((cfg.flash_regions[0].end - cfg.sector_info[i].start) / cfg.sector_info[i].size);
-//         printf("Sector info %d  start addr: 0x%lx, secrot size: 0x%lx * %d\n", i, cfg.sector_info[i].start, cfg.sector_info[i].size, sec_num);
-//     }
-
-//     for (int i = 0; i < cfg.flash_regions.size(); i++)
-//     {
-//         if (cfg.flash_regions[i].start == 0 && cfg.flash_regions[i].end == 0)
-//             break;
-
-//         printf("Flash region %d addr: 0x%lx, end: 0x%lx\n", i, cfg.flash_regions[i].start, cfg.flash_regions[i].end);
-//     }
-
-//     for (int i = 0; i < cfg.ram_regions.size(); i++)
-//     {
-//         if (cfg.ram_regions[i].start == 0 && cfg.ram_regions[i].end == 0)
-//             break;
-
-//         printf("RAM region %d addr: 0x%lx, end: 0x%lx\n", i, cfg.ram_regions[i].start, cfg.ram_regions[i].end);
-//     }
-
-//     while (1)
-//     {
-//         start_time = xTaskGetTickCount();
-//         programmer.programing_hex(cfg, "/data/program/TOGGLE.hex");
-//         ESP_LOGI(TAG, "Elapsed time %ld ms", (xTaskGetTickCount() - start_time) * portTICK_PERIOD_MS);
-//         vTaskDelay(5000);
-//     }
-
-//     if (target.algo_blob)
-//         delete[] target.algo_blob;
-// }
-
 extern "C" void app_main(void)
 {
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -186,7 +138,7 @@ extern "C" void app_main(void)
         .callback_rx = usb_cdc_send_to_uart, // the first way to register a callback
         .callback_rx_wanted_char = NULL,
         .callback_line_state_changed = NULL,
-        .callback_line_coding_changed = usb_cdc_set_line_codinig_slot};
+        .callback_line_coding_changed = usb_cdc_set_line_codinig};
 
     DAP_Setup();
 
@@ -197,8 +149,7 @@ extern "C" void app_main(void)
 
     programmer_init();
     cdc_uart_init(UART_NUM_1, GPIO_NUM_13, GPIO_NUM_14, 115200);
-    uart_rx_handler_init(UART_USB_HANDLER, usb_cdc_send_to_host, (void *)TINYUSB_CDC_ACM_0);
-    uart_rx_handler_init(UART_WEB_HANDLER, web_send_to_clients, &http_server);
-    uart_rx_handler_switch(UART_WEB_HANDLER);
+    cdc_uart_register_rx_handler(CDC_UART_USB_HANDLER, usb_cdc_send_to_host, (void *)TINYUSB_CDC_ACM_0);
+    cdc_uart_register_rx_handler(CDC_UART_WEB_HANDLER, web_send_to_clients, &http_server);
     ESP_LOGI(TAG, "USB initialization DONE");
 }

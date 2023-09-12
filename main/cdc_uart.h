@@ -25,12 +25,18 @@ typedef struct
     void *usr_data;
 } cdc_uart_cb_t;
 
+typedef enum
+{
+    CDC_UART_USB_HANDLER,
+    CDC_UART_WEB_HANDLER,
+    CDC_UART_HANDLER_NUM
+} cdc_uart_handler_def;
+
 bool cdc_uart_init(uart_port_t uart, gpio_num_t tx_pin, gpio_num_t rx_pin, int buadrate);
 bool cdc_uart_set_baudrate(uint32_t baudrate);
 bool cdc_uart_get_baudrate(uint32_t *baudrate);
 bool cdc_uart_write(const void *src, size_t size);
-const cdc_uart_cb_t *cdc_uart_get_rx_callback();
-void cdc_uart_register_rx_callback(const cdc_uart_cb_t *cb);
+void cdc_uart_register_rx_handler(cdc_uart_handler_def handler, cdc_uart_rx_callback_t func, void *context);
 
 #ifdef __cplusplus
 }

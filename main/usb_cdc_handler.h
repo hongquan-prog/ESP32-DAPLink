@@ -18,7 +18,7 @@ extern "C" {
 
 void usb_cdc_send_to_host(void *context, uint8_t *data, size_t size);
 void usb_cdc_send_to_uart(int itf, cdcacm_event_t *event);
-void usb_cdc_set_line_codinig_slot(int itf, cdcacm_event_t *event);
+void usb_cdc_set_line_codinig(int itf, cdcacm_event_t *event);
 
 #ifdef __cplusplus
 }

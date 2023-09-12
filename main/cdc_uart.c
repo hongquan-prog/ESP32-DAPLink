@@ -16,7 +16,7 @@
 typedef struct
 {
     uart_port_t uart;
-    const cdc_uart_cb_t *cb;
+    cdc_uart_cb_t cb[CDC_UART_HANDLER_NUM];
 } cdc_uart_t;
 
 static cdc_uart_t s_cdc_uart = {0};
@@ -40,7 +40,7 @@ bool cdc_uart_init(uart_port_t uart, gpio_num_t tx_pin, gpio_num_t rx_pin, int b
     ret = ret && (ESP_OK == uart_param_config(s_cdc_uart.uart, &uart_config));
     ret = ret && (ESP_OK == uart_set_pin(s_cdc_uart.uart, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
-    if(ret)
+    if (ret)
         xTaskCreate(cdc_uart_rx_task, "cdc_uart_rx_task", 4096, (void *)&s_cdc_uart, 10, NULL);
 
     return ret;
@@ -61,17 +61,15 @@ bool cdc_uart_write(const void *src, size_t size)
     return (0 <= uart_write_bytes(s_cdc_uart.uart, src, size));
 }
 
-void cdc_uart_register_rx_callback(const cdc_uart_cb_t *cb)
+void cdc_uart_register_rx_handler(cdc_uart_handler_def handler, cdc_uart_rx_callback_t func, void *context)
 {
-    if (cb)
+    if ((handler >= CDC_UART_HANDLER_NUM) || !func)
     {
-        s_cdc_uart.cb = cb;
+        return;
     }
-}
 
-const cdc_uart_cb_t *cdc_uart_get_rx_callback()
-{
-    return s_cdc_uart.cb;
+    s_cdc_uart.cb[handler].func = func;
+    s_cdc_uart.cb[handler].usr_data = context;
 }
 
 static void cdc_uart_rx_task(void *param)
@@ -81,7 +79,6 @@ static void cdc_uart_rx_task(void *param)
     int offset = 0;
     int need = 0;
     int read = 0;
-    const cdc_uart_cb_t *cb = NULL;
     uint8_t data[RX_BUF_SIZE] = {0};
     cdc_uart_t *cdc_uart = (cdc_uart_t *)param;
 
@@ -100,11 +97,12 @@ static void cdc_uart_rx_task(void *param)
 
             if ((offset == RX_BUF_SIZE) || ((read == 0) && (offset > 0)))
             {
-                cb = cdc_uart->cb;
-
-                if (cb)
+                for (int i = 0; i < CDC_UART_HANDLER_NUM; i++)
                 {
-                    cb->func(cb->usr_data, data, offset);
+                    if (s_cdc_uart.cb[i].func)
+                    {
+                        s_cdc_uart.cb[i].func(s_cdc_uart.cb[i].usr_data, data, offset);
+                    }
                 }
 
                 offset = 0;

@@ -15,7 +15,30 @@
 #include <dirent.h>
 
 #define TAG "web_handler"
+#define WEB_RESOURCE_NUM 4
 #define IS_FILE_EXT(filename, ext) (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
+
+typedef struct
+{
+    const char *path;
+    const uint8_t *start;
+    const uint8_t *end;
+} web_resource_map_t;
+
+extern const uint8_t root_html_start[] asm("_binary_root_html_start");
+extern const uint8_t root_html_end[] asm("_binary_root_html_end");
+extern const uint8_t program_html_start[] asm("_binary_program_html_start");
+extern const uint8_t program_html_end[] asm("_binary_program_html_end");
+extern const uint8_t webserial_html_start[] asm("_binary_webserial_html_start");
+extern const uint8_t webserial_html_end[] asm("_binary_webserial_html_end");
+extern const uint8_t favicon_ico_start[] asm("_binary_favicon_ico_start");
+extern const uint8_t favicon_ico_end[] asm("_binary_favicon_ico_end");
+
+web_resource_map_t s_resource_map[WEB_RESOURCE_NUM] = {
+    {"/data/httpd/root.html", root_html_start, root_html_end},
+    {"/data/httpd/favicon.ico", favicon_ico_start, favicon_ico_end},
+    {"/data/httpd/program.html", program_html_start, program_html_end},
+    {"/data/httpd/webserial.html", webserial_html_start, webserial_html_end}};
 
 void web_send_to_clients(void *context, uint8_t *data, size_t size)
 {
@@ -110,41 +133,47 @@ static esp_err_t web_set_content_type(httpd_req_t *req, const char *filename)
 
 static bool web_resp_file(httpd_req_t *req, const char *filename, char *buf, size_t size)
 {
-    bool ret = false;
-    FILE *fp = NULL;
-    size_t chunksize = 0;
+    int i = 0;
+    uint32_t offset = 0;
+    uint32_t chunksize = 0;
+    uint32_t file_size = 0;
 
-    fp = fopen(filename, "r");
-    if (!fp)
+    for (i = 0; i < WEB_RESOURCE_NUM; i++)
     {
-        ESP_LOGE(TAG, "File %s not exist", filename);
-        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
-        goto __exit;
-    }
-
-    web_set_content_type(req, filename);
-
-    while (feof(fp) == 0)
-    {
-        chunksize = fread(buf, 1, size, fp);
-
-        if (ESP_OK != httpd_resp_send_chunk(req, buf, chunksize))
+        if (!strcmp(filename, s_resource_map[i].path))
         {
-            ESP_LOGE(TAG, "httpd_resp_send_chunk failed");
-            httpd_resp_send_chunk(req, NULL, 0);
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
-            goto __exit;
+            break;
         }
     }
 
-    ret = true;
+    if (i == WEB_RESOURCE_NUM)
+    {
+        ESP_LOGE(TAG, "File %s not exist", filename);
+        httpd_resp_send_404(req);
+        return false;
+    }
 
-__exit:
+    offset = 0;
+    file_size = s_resource_map[i].end - s_resource_map[i].start;
+    web_set_content_type(req, filename);
 
-    if (fp)
-        fclose(fp);
+    while (offset < file_size)
+    {
+        chunksize = file_size - offset;
+        chunksize = (chunksize < size) ? (chunksize) : (size);
 
-    return ret;
+        if (ESP_OK != httpd_resp_send_chunk(req, (const char *)s_resource_map[i].start + offset, chunksize))
+        {
+            ESP_LOGE(TAG, "httpd_resp_send_chunk failed");
+            httpd_resp_send_chunk(req, NULL, 0);
+            httpd_resp_send_500(req);
+            return false;
+        }
+
+        offset += chunksize;
+    }
+
+    return true;
 }
 
 esp_err_t web_serial_handler(httpd_req_t *req)
@@ -165,7 +194,7 @@ esp_err_t web_index_handler(httpd_req_t *req)
     web_data_t *data = (web_data_t *)req->user_ctx;
     ESP_LOGI(TAG, "%d connected", httpd_req_to_sockfd(req));
 
-    if (req->method == HTTP_GET && web_resp_file(req, "/data/httpd/index.html", (char *)data->buf, CONFIG_HTTPD_RESP_BUF_SIZE))
+    if (req->method == HTTP_GET && web_resp_file(req, "/data/httpd/root.html", (char *)data->buf, CONFIG_HTTPD_RESP_BUF_SIZE))
     {
         httpd_resp_send_chunk(req, NULL, 0);
         return ESP_OK;
