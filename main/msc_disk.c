@@ -21,7 +21,7 @@
 
 static const char *TAG = "msc_disk";
 
-#ifdef MSC_STORAGE_MEDIA_SDMMCCARD
+#ifdef CONFIG_MSC_STORAGE_MEDIA_SPIFLASH
 static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
 {
     ESP_LOGI(TAG, "Initializing wear levelling");
@@ -117,7 +117,7 @@ clean:
 // mount the partition and show all the files in path
 void msc_dick_mount(const char *path)
 {
-#ifdef MSC_STORAGE_MEDIA_SDMMCCARD
+#ifdef CONFIG_MSC_STORAGE_MEDIA_SPIFLASH
     static wl_handle_t wl_handle = WL_INVALID_HANDLE;
     ESP_ERROR_CHECK(storage_init_spiflash(&wl_handle));
 
