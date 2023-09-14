@@ -4,6 +4,7 @@ idf_component_register(SRCS "main.cpp"
                         "web_handler.c"
                         "usb_cdc_handler.c"
                         "web_server.c"
+                        "usb_desc.c"
                         "programmer.cpp"
                        INCLUDE_DIRS .
                        EMBED_FILES "../html/root.html"

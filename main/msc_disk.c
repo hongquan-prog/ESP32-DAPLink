@@ -39,7 +39,7 @@ static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
 
 static esp_err_t storage_init_sdmmc(sdmmc_card_t **card)
 {
-    esp_err_t ret = ESP_OK;
+    esp_err_t ret = ESP_FAIL;
     bool host_init = false;
     sdmmc_card_t *sd_card;
 
@@ -79,10 +79,10 @@ static esp_err_t storage_init_sdmmc(sdmmc_card_t **card)
     ESP_GOTO_ON_ERROR(sdmmc_host_init_slot(host.slot, (const sdmmc_slot_config_t *)&slot_config),
                       clean, TAG, "Host init slot fail");
 
-    while (sdmmc_card_init(&host, sd_card))
+    if (sdmmc_card_init(&host, sd_card) != ESP_OK)
     {
-        ESP_LOGE(TAG, "The detection pin of the slot is disconnected(Insert uSD card). Retrying...");
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        ESP_LOGE(TAG, "The detection pin of the slot is disconnected(Insert uSD card)");
+        goto clean;
     }
 
     // Card has been initialized, print its properties
@@ -115,7 +115,7 @@ clean:
 #endif
 
 // mount the partition and show all the files in path
-void msc_dick_mount(const char *path)
+bool msc_dick_mount(const char *path)
 {
 #ifdef CONFIG_MSC_STORAGE_MEDIA_SPIFLASH
     static wl_handle_t wl_handle = WL_INVALID_HANDLE;
@@ -125,7 +125,9 @@ void msc_dick_mount(const char *path)
     ESP_ERROR_CHECK(tinyusb_msc_storage_init_spiflash(&config_spi));
 #else
     static sdmmc_card_t *card = NULL;
-    ESP_ERROR_CHECK(storage_init_sdmmc(&card));
+
+    if (storage_init_sdmmc(&card) != ESP_OK)
+        return false;
 
     const tinyusb_msc_sdmmc_config_t config_sdmmc = {
         .card = card};
@@ -135,5 +137,5 @@ void msc_dick_mount(const char *path)
     ESP_LOGI(TAG, "Mount storage...");
 
     ESP_ERROR_CHECK(tinyusb_msc_storage_mount(path));
-    return;
+    return true;
 }
