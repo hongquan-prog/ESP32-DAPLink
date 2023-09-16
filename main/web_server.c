@@ -21,6 +21,9 @@ static const httpd_uri_t s_webserial_send = {"/webserial_socket", HTTP_GET, web_
 static const httpd_uri_t s_favicon = {"/favicon.ico", HTTP_GET, web_favicon_handler, &s_web_data, false, false, NULL};
 static const httpd_uri_t s_get_program = {"/program", HTTP_GET, web_program_handler, &s_web_data, false, false, NULL};
 static const httpd_uri_t s_post_program = {"/program", HTTP_POST, web_flash_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_program_progress = {"/program-progress", HTTP_GET, web_program_progress_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_upload_program = {"/upload-program/*", HTTP_POST, web_upload_program_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_algorithm_program = {"/upload-algorithm/*", HTTP_POST, web_upload_algorithm_handler, &s_web_data, false, false, NULL};
 
 bool web_server_init(httpd_handle_t *server)
 {
@@ -32,7 +35,9 @@ bool web_server_init(httpd_handle_t *server)
         return false;
     }
 
+    config.max_uri_handlers = 12;
     config.max_open_sockets = CONFIG_HTTPD_MAX_OPENED_SOCKETS;
+    config.uri_match_fn = httpd_uri_match_wildcard;
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
 
     if (httpd_start(&s_web_data.server, &config) != ESP_OK)
@@ -47,6 +52,9 @@ bool web_server_init(httpd_handle_t *server)
     httpd_register_uri_handler(s_web_data.server, &s_favicon);
     httpd_register_uri_handler(s_web_data.server, &s_get_program);
     httpd_register_uri_handler(s_web_data.server, &s_post_program);
+    httpd_register_uri_handler(s_web_data.server, &s_upload_program);
+    httpd_register_uri_handler(s_web_data.server, &s_program_progress);
+    httpd_register_uri_handler(s_web_data.server, &s_algorithm_program);
     *server = s_web_data.server;
 
     return true;

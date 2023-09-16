@@ -372,19 +372,19 @@ extern "C"
 
 // Fixed delay for fast clock generation
 #ifndef DELAY_FAST_CYCLES
-#define DELAY_FAST_CYCLES 0U // Number of cycles: 0..3
+#define DELAY_FAST_CYCLES 1U // Number of cycles: 0..3
 #endif
   // __STATIC_FORCEINLINE void PIN_DELAY_FAST (void) {
   static inline void PIN_DELAY_FAST(void)
   {
 #if (DELAY_FAST_CYCLES >= 1U)
-    __NOP();
+    asm volatile("nop");
 #endif
 #if (DELAY_FAST_CYCLES >= 2U)
-    __NOP();
+    asm volatile("nop");
 #endif
 #if (DELAY_FAST_CYCLES >= 3U)
-    __NOP();
+    asm volatile("nop");
 #endif
   }
 

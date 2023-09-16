@@ -29,7 +29,8 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
     size_t rd_size = 0;
     uint32_t wr_addr = 0;
     uint32_t decode_size = 0;
-    uint32_t total_size = 0;
+    uint32_t writed_size = 0;
+    uint32_t file_size = 0;
     FlashIface::err_t err = FlashIface::ERR_NONE;
 
     if (file.empty())
@@ -45,6 +46,11 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
         LOG_ERROR("Failed to open %s", file.c_str());
         goto __exit;
     }
+
+    _progress = 0;
+    fseek(fp, 0, SEEK_END);
+    file_size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
 
     err = _flash_accessor.init(cfg);
     if (err != FlashIface::ERR_NONE)
@@ -68,12 +74,15 @@ bool HexProg::programing_hex(const FlashIface::target_cfg_t &cfg, const std::str
             }
 
             wr_addr += decode_size;
-            total_size += decode_size;
+            writed_size += decode_size;
         }
+
+        _progress = ftell(fp) * 100 / file_size;
     }
 
     ret = true;
-    LOG_INFO("DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), _start_address);
+    _progress = 100;
+    LOG_INFO("DAPLink write %ld bytes to %s at 0x%08lx successfully", writed_size, cfg.device_name.c_str(), _start_address);
 
 __exit:
 

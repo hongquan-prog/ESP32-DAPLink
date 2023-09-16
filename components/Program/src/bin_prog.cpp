@@ -14,14 +14,17 @@
 #define TAG "bin_prog"
 
 BinProg::BinProg()
-    : _file_path(),
+    : _progress(0),
+      _file_path(),
       _flash_accessor(FlashAccessor::get_instance())
 {
     _flash_accessor.swd_init(TargetSWD::get_instance());
 }
 
 BinProg::BinProg(const std::string &file)
-    : _file_path(file), _flash_accessor(FlashAccessor::get_instance())
+    : _progress(0),
+      _file_path(file),
+      _flash_accessor(FlashAccessor::get_instance())
 {
     _flash_accessor.swd_init(TargetSWD::get_instance());
 }
@@ -31,7 +34,8 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
     bool ret = false;
     size_t rd_size = 0;
     uint32_t wr_addr = addr;
-    uint32_t total_size = 0;
+    uint32_t writed_size = 0;
+    uint32_t file_size = 0;
     FILE *fp = nullptr;
     FlashIface::err_t err = FlashIface::ERR_NONE;
 
@@ -49,6 +53,11 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
         goto __exit;
     }
 
+    _progress = 0;
+    fseek(fp, 0, SEEK_END);
+    file_size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
     err = _flash_accessor.init(cfg);
     if (err != FlashIface::ERR_NONE)
     {
@@ -63,7 +72,7 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
 
         if (rd_size > 0)
         {
-            total_size += rd_size;
+            writed_size += rd_size;
             if (FlashIface::ERR_NONE != _flash_accessor.write(wr_addr, _bin_buffer, rd_size))
             {
                 LOG_ERROR("Failed to write bin at:%lx", wr_addr);
@@ -73,10 +82,13 @@ bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr
 
             wr_addr += rd_size;
         }
+
+        _progress = ftell(fp) * 100 / file_size;
     }
 
     ret = true;
-    LOG_INFO("DAPLink write %ld bytes to %s at 0x%08lx successfully", total_size, cfg.device_name.c_str(), addr);
+    _progress = 100;
+    LOG_INFO("DAPLink write %ld bytes to %s at 0x%08lx successfully", writed_size, cfg.device_name.c_str(), addr);
 
 __exit:
 
@@ -91,4 +103,14 @@ __exit:
 bool BinProg::programming_bin(const FlashIface::target_cfg_t &cfg, uint32_t addr)
 {
     return programming_bin(cfg, addr, _file_path);
+}
+
+int BinProg::get_progress()
+{
+    return _progress;
+}
+
+void BinProg::reset_progress()
+{
+    _progress = 0;
 }

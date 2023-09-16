@@ -29,4 +29,16 @@ config HTTPD_RESP_BUF_SIZE
     int "The size of http server to replay"
     default 512
 
+config PROGRAMMER_ALGORITHM_ROOT
+    string "The folder where the algorithms are stored"
+    default "/data/algo"
+
+config PROGRAMMER_PROGRAM_ROOT
+    string "The folder where the programs are stored"
+    default "/data/program"
+
+config PROGRAMMER_FILE_MAX_LEN
+    int "Maximum length of file path"
+    default 128
+
 endmenu

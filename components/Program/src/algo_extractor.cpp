@@ -249,7 +249,6 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
         {
             delete[] target.algo_blob;
             target.algo_blob = nullptr;
-            printf("free\n");
         }
     }
 

@@ -29,6 +29,9 @@ extern "C"
     esp_err_t web_favicon_handler(httpd_req_t *req);
     esp_err_t web_program_handler(httpd_req_t *req);
     esp_err_t web_flash_handler(httpd_req_t *req);
+    esp_err_t web_upload_program_handler(httpd_req_t *req);
+    esp_err_t web_program_progress_handler(httpd_req_t *req);
+    esp_err_t web_upload_algorithm_handler(httpd_req_t *req);
 
 #ifdef __cplusplus
 }

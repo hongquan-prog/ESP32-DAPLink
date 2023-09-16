@@ -29,6 +29,15 @@
             text-align: center;
         }
 
+        .form-group input {
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+            border: 1px solid black;
+        }
+
         .form-group label {
             display: block;
             font-weight: bold;
@@ -37,7 +46,7 @@
         }
 
         .form-group select,
-        .form-group input {
+        .progress-container progress {
             width: 100%;
             padding: 10px;
             font-size: 16px;
@@ -51,46 +60,190 @@
             color: white;
             border: none;
             cursor: pointer;
+            width: 100%;
         }
     </style>
 </head>
 <script>
+    var programProgressTimer;
+
     document.addEventListener("DOMContentLoaded", function () {
-        document.getElementById("program-button").addEventListener('click', program);
-        function program() {
-            var flash_addr = parseInt(document.getElementById("flash-address").value, 16);
-            var ram_addr = parseInt(document.getElementById("ram-address").value, 16);
-            var algo = document.getElementById("algorithm").value;
-            var program = document.getElementById("program").value;
-            var program_suffix = program.split('.').pop();
-            var xhr = new XMLHttpRequest();
+        document.getElementById("program-button").addEventListener('click', program_device);
+        document.getElementById("upload-program-button").addEventListener('click', upload_program);
+        document.getElementById("upload-algorithm-button").addEventListener('click', upload_algorithm);
+    });
 
-            if (isNaN(flash_addr) && program_suffix == "bin") {
-                alert("二进制文件必须提供Flash写入地址");
-                return;
+    function program_device() {
+        var flash_addr = parseInt(document.getElementById("flash-address").value, 16);
+        var ram_addr = parseInt(document.getElementById("ram-address").value, 16);
+        var algorithm = document.getElementById("algorithm").value;
+        var program = document.getElementById("program").value;
+        var program_suffix = program.split('.').pop();
+        var xhr = new XMLHttpRequest();
+
+        if (isNaN(flash_addr) && program_suffix == "bin") {
+            alert("二进制文件必须提供Flash写入地址");
+            return;
+        }
+
+        xhr.open("POST", "/program", true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                updateProgressBar(0);
+                document.getElementById("program-button").disabled = true;
+                programProgressTimer = setInterval(getProgress, 300);
             }
+        };
 
-            xhr.open("POST", "/program", true);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    confirm("指令发送成功")
+        xhr.send(JSON.stringify({
+            flash_addr: flash_addr,
+            ram_addr: ram_addr,
+            algorithm: algorithm,
+            program: program
+        }));
+    }
+
+    function upload_program() {
+        var fileInput = document.getElementById("upload-program").files;
+        var filePath = "";
+
+        if (fileInput.length == 0) {
+            alert("No file selected!");
+            return;
+        }
+
+        filePath = fileInput[0].name;
+        if (filePath.length == 0) {
+            alert("File path on server is not set!");
+        } else if (filePath.indexOf(' ') >= 0) {
+            alert("File path on server cannot have spaces!");
+        } else if (filePath[filePath.length - 1] == '/') {
+            alert("File name not specified after path!");
+        } else if (fileInput[0].size > 10 * 1024 * 1024) {
+            alert("File size must be less than 10M!");
+        } else {
+            document.getElementById("upload-program").disabled = true;
+            document.getElementById("upload-program-button").disabled = true;
+
+            var file = fileInput[0];
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (xhttp.readyState == 4) {
+                    if (xhttp.status == 200) {
+                        add_option(document.getElementById("program"), filePath);
+                        document.getElementById("program").value = filePath;
+                        alert("程序上传成功");
+                    } else if (xhttp.status == 0) {
+                        alert("Server closed the connection abruptly!");
+                        location.reload()
+                    } else {
+                        alert(xhttp.status + " Error!\n" + xhttp.responseText);
+                        location.reload()
+                    }
                 }
+                document.getElementById("upload-program").disabled = false;
+                document.getElementById("upload-program-button").disabled = false;
             };
 
-            xhr.send(JSON.stringify({
-                flash_addr: flash_addr,
-                ram_addr: ram_addr,
-                algorithm: algo,
-                program: program
-            }));
+            xhttp.upload.addEventListener("progress", function (e) {
+                if (e.lengthComputable) {
+                    updateProgressBar(Math.round((e.loaded * 100) / e.total));
+                }
+            }, false);
 
-            console.log(JSON.stringify({
-                flash_addr: flash_addr,
-                ram_addr: ram_addr,
-                algorithm: algo,
-                program: program
-            }));
+            xhttp.open("POST", "/upload-program/" + filePath, true);
+            xhttp.send(file);
         }
-    });
+    }
+
+    function upload_algorithm() {
+        var fileInput = document.getElementById("upload-algorithm").files;
+        var filePath = "";
+
+        if (fileInput.length == 0) {
+            alert("No file selected!");
+            return;
+        }
+
+        filePath = fileInput[0].name;
+        if (filePath.length == 0) {
+            alert("File path on server is not set!");
+        } else if (filePath.indexOf(' ') >= 0) {
+            alert("File path on server cannot have spaces!");
+        } else if (filePath[filePath.length - 1] == '/') {
+            alert("File name not specified after path!");
+        } else if (fileInput[0].size > 10 * 1024 * 1024) {
+            alert("File size must be less than 10M!");
+        } else {
+            document.getElementById("upload-algorithm").disabled = true;
+            document.getElementById("upload-algorithm-button").disabled = true;
+
+            var file = fileInput[0];
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (xhttp.readyState == 4) {
+                    if (xhttp.status == 200) {
+                        alert("算法上传成功");
+                        add_option(document.getElementById("algorithm"), filePath);
+                        document.getElementById("algorithm").value = filePath;
+                    } else if (xhttp.status == 0) {
+                        alert("Server closed the connection abruptly!");
+                        location.reload()
+                    } else {
+                        alert(xhttp.status + " Error!\n" + xhttp.responseText);
+                        location.reload()
+                    }
+                }
+                document.getElementById("upload-algorithm").disabled = false;
+                document.getElementById("upload-algorithm-button").disabled = false;
+            };
+
+            xhttp.upload.addEventListener("progress", function (e) {
+                if (e.lengthComputable) {
+                    updateProgressBar(Math.round((e.loaded * 100) / e.total));
+                }
+            }, false);
+
+            xhttp.open("POST", "/upload-algorithm/" + filePath, true);
+            xhttp.send(file);
+        }
+    }
+
+    function add_option(select, name) {
+        var option = document.createElement("option");
+        option.value = name;
+        option.text = name;
+        select.appendChild(option);
+    }
+
+    function getProgress() {
+        var progressXhr = new XMLHttpRequest();
+        progressXhr.onreadystatechange = function () {
+            if (progressXhr.readyState === 4 && progressXhr.status === 200) {
+                var response = JSON.parse(progressXhr.responseText);
+                updateProgressBar(response.progress);
+
+                console.log(response.progress, response.status);
+
+                if (response.status === "idle" && response.progress != 100) {
+                    clearInterval(programProgressTimer);
+                    document.getElementById("program-button").disabled = false;
+                    alert("程序烧录失败");
+                }
+                else if (response.progress === 100) {
+                    clearInterval(programProgressTimer);
+                    document.getElementById("program-button").disabled = false;
+                    alert("程序烧录成功");
+                }
+            }
+        };
+        progressXhr.open("GET", "/program-progress", true);
+        progressXhr.send();
+    }
+
+    function updateProgressBar(progress) {
+        var progressBar = document.getElementById("progress");
+        progressBar.value = progress;
+    }
 </script>
