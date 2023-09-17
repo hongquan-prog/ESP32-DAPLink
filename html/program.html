@@ -152,7 +152,7 @@
                 }
             }, false);
 
-            xhttp.open("POST", "/upload-program/" + filePath, true);
+            xhttp.open("POST", "/api/upload?location=program&overwrite=true&name=" + filePath, true);
             xhttp.send(file);
         }
     }
@@ -205,7 +205,7 @@
                 }
             }, false);
 
-            xhttp.open("POST", "/upload-algorithm/" + filePath, true);
+            xhttp.open("POST", "/api/upload?location=algorithm&overwrite=true&name=" + filePath, true);
             xhttp.send(file);
         }
     }
