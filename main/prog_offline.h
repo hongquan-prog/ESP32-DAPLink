@@ -17,4 +17,5 @@ private:
 public:
     ProgOffline();
     virtual void program_start_handle(ProgData &obj) override;
+    virtual const char *name() override;
 };

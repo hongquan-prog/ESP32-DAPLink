@@ -17,4 +17,5 @@ public:
     virtual void program_start_handle(ProgData &obj) override;
     virtual void program_timeout_handle(ProgData &obj) override;
     virtual void program_data_handle(ProgData &obj) override;
+    virtual const char *name() override;
 };

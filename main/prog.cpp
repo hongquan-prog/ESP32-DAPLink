@@ -27,10 +27,16 @@ void Prog::program_start_handle(ProgData &obj)
 
 void Prog::program_data_handle(ProgData &obj)
 {
-    request_handle(obj);
+    obj.set_swap(reinterpret_cast<void *>(PROG_ERR_INVALID_OPERATION));
+    obj.send_sync();
 }
 
 void Prog::program_timeout_handle(ProgData &obj)
 {
     obj.disable_timeout_timer();
 }
+
+const char *Prog::name()
+{
+    return "Prog";
+};

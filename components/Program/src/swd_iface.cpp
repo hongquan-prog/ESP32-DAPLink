@@ -70,10 +70,12 @@ SWDIface::transfer_err_def SWDIface::transfer_retry(uint32_t req, uint32_t *data
     {
         ack = transer(req, data);
 
-        if (ack != TRANSFER_WAIT)
+        if (ack == TRANSFER_OK)
         {
             return ack;
         }
+
+        msleep(1);
     }
 
     return ack;
@@ -126,7 +128,6 @@ bool SWDIface::read_ap(uint32_t adr, uint32_t *val)
     req = SWD_REG_AP | SWD_REG_R | SWD_REG_ADR(adr);
     // first dummy read
     transfer_retry(req, nullptr);
-
 
     return (transfer_retry(req, val) == TRANSFER_OK);
 }
@@ -882,8 +883,6 @@ bool SWDIface::set_target_state(target_state_t state)
         {
             return false;
         }
-
-        msleep(1);
 
         if (!write_word(NVIC_AIRCR, VECTKEY | (val & SCB_AIRCR_PRIGROUP_Msk) | SYSRESETREQ))
         {

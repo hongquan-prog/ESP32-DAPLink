@@ -80,19 +80,19 @@
     }
 
     function getFileById(id) {
-        var fileInput = document.getElementById(id).files;
+        let fileInput = document.getElementById(id).files;
 
         if (fileInput.length == 0) {
             alert("No file selected!");
             return;
         }
 
-        var filePath = fileInput[0].name;
-        if (filePath.length == 0) {
+        let name = fileInput[0].name;
+        if (name.length == 0) {
             alert("File path on server is not set!");
-        } else if (filePath.indexOf(' ') >= 0) {
+        } else if (name.indexOf(' ') >= 0) {
             alert("File path on server cannot have spaces!");
-        } else if (filePath[filePath.length - 1] == '/') {
+        } else if (name[name.length - 1] == '/') {
             alert("File name not specified after path!");
         } else if (fileInput[0].size > 10 * 1024 * 1024) {
             alert("File size must be less than 10M!");
@@ -117,9 +117,8 @@
                 updateProgressBar(0);
                 /* Start uploading firmware */
                 let xhttp = new XMLHttpRequest();
-                document.getElementById("online-program").disabled = true;
-                document.getElementById("online-program-btn").disabled = true;
                 xhttp.onreadystatechange = function () {
+                    console.log(xhttp.readyState);
                     if (xhttp.readyState == 4) {
                         if (xhttp.status == 200) {
                             alert("程序烧录成功");
@@ -129,8 +128,7 @@
                             alert(xhttp.status + " Error!\n" + xhttp.responseText);
                         }
                     }
-                    document.getElementById("online-program").disabled = false;
-                    document.getElementById("online-program-btn").disabled = false;
+                    disable(false);
                 };
 
                 /* Read update progress */
@@ -146,7 +144,7 @@
         }
     }
 
-    function getOfflineProgramProgress() {
+    function getProgramProgress() {
         var progressXhr = new XMLHttpRequest();
         progressXhr.onreadystatechange = function () {
             if (progressXhr.readyState === 4 && progressXhr.status === 200) {
@@ -156,13 +154,13 @@
                 console.log(response.progress, response.status);
 
                 if (response.status === "idle" && response.progress != 100) {
+                    disable(false);
                     clearInterval(programProgressTimer);
-                    document.getElementById("offline-program-btn").disabled = false;
                     alert("程序烧录失败");
                 }
                 else if (response.progress === 100) {
                     clearInterval(programProgressTimer);
-                    document.getElementById("offline-program-btn").disabled = false;
+                    disable(false);
                 }
             }
         };
@@ -170,12 +168,23 @@
         progressXhr.send();
     }
 
+    function disable(status) {
+        document.getElementById("online-program").disabled = status;
+        document.getElementById("online-program-btn").disabled = status;
+        document.getElementById("offline-program").disabled = status;
+        document.getElementById("offline-program-btn").disabled = status;
+        document.getElementById("upload-program").disabled = status;
+        document.getElementById("upload-program-btn").disabled = status;
+        document.getElementById("upload-algorithm").disabled = status;
+        document.getElementById("upload-algorithm-btn").disabled = status;
+    }
+
     function offlineProgramResponseHandle(xhr) {
         return function () {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 updateProgressBar(0);
-                programProgressTimer = setInterval(getOfflineProgramProgress, 300);
-                document.getElementById("offline-program-btn").disabled = true;
+                programProgressTimer = setInterval(getProgramProgress, 300);
+                disable(true);
             }
         }
     }
@@ -214,14 +223,13 @@
         let file = getFileById("upload-program");
         if (file != undefined) {
             let xhttp = new XMLHttpRequest();
-            document.getElementById("upload-program").disabled = true;
-            document.getElementById("upload-program-btn").disabled = true;
+            disable(true);
 
             xhttp.onreadystatechange = function () {
                 if (xhttp.readyState == 4) {
                     if (xhttp.status == 200) {
-                        addOptionToSelect(document.getElementById("offline-program"), filePath);
-                        document.getElementById("offline-program").value = filePath;
+                        addOptionToSelect(document.getElementById("offline-program"), file.name);
+                        document.getElementById("offline-program").value = file.name;
                         alert("程序上传成功");
                     } else if (xhttp.status == 0) {
                         alert("Server closed the connection abruptly!");
@@ -229,8 +237,7 @@
                         alert(xhttp.status + " Error!\n" + xhttp.responseText);
                     }
                 }
-                document.getElementById("upload-program").disabled = false;
-                document.getElementById("upload-program-btn").disabled = false;
+                disable(false);
             };
 
             xhttp.upload.addEventListener("progress", function (e) {
@@ -239,7 +246,7 @@
                 }
             }, false);
 
-            xhttp.open("POST", "/api/upload?location=program&overwrite=true&name=" + filePath, true);
+            xhttp.open("POST", "/api/upload?location=program&overwrite=true&name=" + file.name, true);
             xhttp.send(file);
         }
     }
@@ -247,24 +254,22 @@
     function uploadAlgorithm() {
         let file = getFileById("upload-algorithm");
         if (file != undefined) {
-            document.getElementById("upload-algorithm").disabled = true;
-            document.getElementById("upload-algorithm-btn").disabled = true;
+            disable(true);
 
-            var xhttp = new XMLHttpRequest();
+            let xhttp = new XMLHttpRequest();
             xhttp.onreadystatechange = function () {
                 if (xhttp.readyState == 4) {
                     if (xhttp.status == 200) {
                         alert("算法上传成功");
-                        addOptionToSelect(document.getElementById("algorithm"), filePath);
-                        document.getElementById("algorithm").value = filePath;
+                        addOptionToSelect(document.getElementById("algorithm"), file.name);
+                        document.getElementById("algorithm").value = file.name;
                     } else if (xhttp.status == 0) {
                         alert("Server closed the connection abruptly!");
                     } else {
                         alert(xhttp.status + " Error!\n" + xhttp.responseText);
                     }
                 }
-                document.getElementById("upload-algorithm").disabled = false;
-                document.getElementById("upload-algorithm-btn").disabled = false;
+                disable(false);
             };
 
             xhttp.upload.addEventListener("progress", function (e) {
@@ -273,7 +278,7 @@
                 }
             }, false);
 
-            xhttp.open("POST", "/api/upload?location=algorithm&overwrite=true&name=" + filePath, true);
+            xhttp.open("POST", "/api/upload?location=algorithm&overwrite=true&name=" + file.name, true);
             xhttp.send(file);
         }
     }

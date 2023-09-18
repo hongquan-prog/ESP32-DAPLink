@@ -34,6 +34,7 @@ bool BinaryProgram::init(const FlashIface::target_cfg_t &cfg, uint32_t program_a
     }
 
     _program_addr = program_addr;
+    LOG_INFO("Starting to program bin at 0x%lx", _program_addr);
 
     return (_flash_accessor.init(cfg) == FlashIface::ERR_NONE);
 }

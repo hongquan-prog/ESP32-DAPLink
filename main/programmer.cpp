@@ -11,8 +11,11 @@
 #include <sys/stat.h>
 #include <cstring>
 
+#define TAG "programmer"
+
 static ProgData s_data;
-static Prog *s_prog;
+static Prog *s_prog = nullptr;
+static Prog *s_last_prog = nullptr;
 
 prog_err_def programmer_request_handle(char *buf, int len)
 {
@@ -36,6 +39,8 @@ static void programmer_switch_mode(prog_mode_def mode)
     static ProgOnline prog_online;
     static ProgOffline prog_offline;
 
+    s_last_prog = s_prog;
+
     switch (mode)
     {
     case PROG_ONLINE_MODE:
@@ -49,6 +54,11 @@ static void programmer_switch_mode(prog_mode_def mode)
         break;
     default:
         break;
+    }
+
+    if (s_last_prog && s_prog)
+    {
+        ESP_LOGI(TAG, "%s--> %s", s_last_prog->name(), s_prog->name());
     }
 }
 

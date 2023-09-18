@@ -1,5 +1,7 @@
 #include "prog_idle.h"
 
+#define TAG "prog_idle"
+
 void ProgIdle::request_handle(ProgData &obj)
 {
     int ret = PROG_ERR_NONE;
@@ -25,3 +27,8 @@ void ProgIdle::request_handle(ProgData &obj)
     /* After a successful mode switch, send a synchronisation signal to keep the http server running */
     obj.send_sync();
 }
+
+const char *ProgIdle::name()
+{
+    return TAG;
+};

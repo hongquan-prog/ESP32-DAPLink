@@ -627,19 +627,27 @@ esp_err_t web_online_program_handler(httpd_req_t *req)
             }
 
             ESP_LOGE(TAG, "File reception failed!");
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive file");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive program");
             return ESP_FAIL;
         }
 
-        if (received && (PROG_ERR_NONE != programmer_write_data(data->buf, received)))
+        if (received)
         {
-            ESP_LOGE(TAG, "File write failed!");
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to write file to storage");
-            return ESP_FAIL;
+            prog_err_def ret = programmer_write_data(data->buf, received);
+
+            if (PROG_ERR_NONE != ret)
+            {
+                ESP_LOGE(TAG, "File flash failed! ret: %d", ret);
+                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to write file to target");
+                return ESP_FAIL;
+            }
         }
 
         remaining -= received;
     }
+
+    httpd_resp_set_hdr(req, "Connection", "close");
+    httpd_resp_sendstr(req, "Target program successfully");
 
     return ESP_OK;
 }
