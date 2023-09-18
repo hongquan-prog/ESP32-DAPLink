@@ -21,9 +21,9 @@ static const httpd_uri_t s_webserial_send = {"/webserial_socket", HTTP_GET, web_
 static const httpd_uri_t s_favicon = {"/favicon.ico", HTTP_GET, web_favicon_handler, &s_web_data, false, false, NULL};
 static const httpd_uri_t s_get_program = {"/program", HTTP_GET, web_program_handler, &s_web_data, false, false, NULL};
 static const httpd_uri_t s_post_program = {"/program", HTTP_POST, web_flash_handler, &s_web_data, false, false, NULL};
-static const httpd_uri_t s_program_progress = {"/program-progress", HTTP_GET, web_program_progress_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_query = {"/api/query*", HTTP_GET, web_query_handler, &s_web_data, false, false, NULL};
 static const httpd_uri_t s_upload_file = {"/api/upload*", HTTP_POST, web_upload_file_handler, &s_web_data, false, false, NULL};
-static const httpd_uri_t s_online_program = {"/online-program", HTTP_POST, web_online_program_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_online_program = {"/api/online-program", HTTP_POST, web_online_program_handler, &s_web_data, false, false, NULL};
 
 bool web_server_init(httpd_handle_t *server)
 {
@@ -53,7 +53,7 @@ bool web_server_init(httpd_handle_t *server)
     httpd_register_uri_handler(s_web_data.server, &s_get_program);
     httpd_register_uri_handler(s_web_data.server, &s_post_program);
     httpd_register_uri_handler(s_web_data.server, &s_upload_file);
-    httpd_register_uri_handler(s_web_data.server, &s_program_progress);
+    httpd_register_uri_handler(s_web_data.server, &s_query);
     httpd_register_uri_handler(s_web_data.server, &s_online_program);
     *server = s_web_data.server;
 

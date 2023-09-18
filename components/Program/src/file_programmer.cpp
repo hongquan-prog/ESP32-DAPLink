@@ -6,7 +6,7 @@
 #define TAG "file_programmer"
 
 FileProgrammer::FileProgrammer(ProgramIface &binary_program, ProgramIface &hex_program)
-    : _binary_program(binary_program), _hex_program(hex_program), _program_progress(0)
+    : _binary_program(binary_program), _hex_program(hex_program), _program_progress(0), _progress_changed_cb(nullptr)
 {
 }
 
@@ -62,7 +62,7 @@ bool FileProgrammer::program(const std::string &path, FlashIface::target_cfg_t &
         return false;
     }
 
-    _program_progress = 0;
+    set_program_progress(0);
     fseek(fp, 0, SEEK_END);
     file_size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
@@ -87,11 +87,11 @@ bool FileProgrammer::program(const std::string &path, FlashIface::target_cfg_t &
                 return false;
             }
 
-            _program_progress = ftell(fp) * 100 / file_size;
+            set_program_progress(ftell(fp) * 100 / file_size);
         }
     }
 
-    _program_progress = 100;
+    set_program_progress(100);
     fclose(fp);
     iface->clean();
 
@@ -103,13 +103,21 @@ int FileProgrammer::get_program_progress(void)
     return _program_progress;
 }
 
+void FileProgrammer::set_program_progress(int progress)
+{
+    _program_progress = progress;
+
+    if (_progress_changed_cb)
+        _progress_changed_cb(_program_progress);
+}
+
+void FileProgrammer::register_progress_changed_callback(const progress_changed_cb_t &func)
+{
+    _progress_changed_cb = func;
+}
+
 bool FileProgrammer::is_exist(const char *path)
 {
     struct stat file_stat;
     return (path && (stat(path, &file_stat) == 0));
-}
-
-void FileProgrammer::reset(void)
-{
-    _program_progress = 0;
 }

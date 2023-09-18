@@ -9,6 +9,7 @@ set(COMPONENT_SRCS
 			"src/hex_program.cpp"
             "src/algo_extractor.cpp"
             "src/file_programmer.cpp"
+            "src/stream_programmer.cpp"
 			)
 set(COMPONENT_REQUIRES fatfs DAP)
 register_component()

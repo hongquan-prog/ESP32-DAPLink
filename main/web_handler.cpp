@@ -305,8 +305,8 @@ esp_err_t web_program_handler(httpd_req_t *req)
     httpd_resp_sendstr_chunk(req, "</select>"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<label for=\"program\" style=\"text-align: left;\">程序:</label>"
-                                  "<select id=\"program\">"
+                                  "<label for=\"offline-program\" style=\"text-align: left;\">程序:</label>"
+                                  "<select id=\"offline-program\">"
                                   "<option value=\"\">请选择程序</option>");
     web_list_files(CONFIG_PROGRAMMER_PROGRAM_ROOT, CONFIG_PROGRAMMER_PROGRAM_ROOT, web_add_option, req);
     httpd_resp_sendstr_chunk(req, "</select>"
@@ -320,21 +320,28 @@ esp_err_t web_program_handler(httpd_req_t *req)
                                   "<input type=\"text\" id=\"ram-address\" placeholder=\"请输入RAM地址\">"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<button id=\"program-button\">烧录</button>"
+                                  "<button id=\"offline-program-btn\">烧录</button>"
+                                  "</div>"
+                                  "<div class=\"form-group\">"
+                                  "<label for=\"online-program\" style=\"text-align: left; margin-top: 10px;\">在线烧录:</label>"
+                                  "<input type=\"file\" id=\"online-program\" style=\"height: 100%; padding: 4px;\">"
+                                  "</div>"
+                                  "<div class=\"form-group\">"
+                                  "<button id=\"online-program-btn\">烧录</button>"
                                   "</div>");
     httpd_resp_sendstr_chunk(req, "<div class=\"form-group\">"
-                                  "<label for=\"upload-program\" style=\"text-align: left; margin-top: 60px;\">上传程序:</label>"
+                                  "<label for=\"upload-program\" style=\"text-align: left; margin-top: 10px;\">上传程序:</label>"
                                   "<input type=\"file\" id=\"upload-program\" style=\"height: 100%; padding: 4px;\">"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<button id=\"upload-program-button\">上传</button>"
+                                  "<button id=\"upload-program-btn\">上传</button>"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<label for=\"upload-algorithm\" style=\"text-align: left; margin-top: 60px;\">上传算法:</label>"
+                                  "<label for=\"upload-algorithm\" style=\"text-align: left; margin-top: 10px;\">上传算法:</label>"
                                   "<input type=\"file\" id=\"upload-algorithm\" style=\"height: 100%; padding: 4px;\">"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<button id=\"upload-algorithm-button\">上传</button>"
+                                  "<button id=\"upload-algorithm-btn\">上传</button>"
                                   "</div>"
                                   "</div>"
                                   "</div>"
@@ -385,7 +392,7 @@ esp_err_t web_flash_handler(httpd_req_t *req)
 
     buf[offset] = '\0';
 
-    if (programmer_put_cmd(buf, offset))
+    if (programmer_request_handle(buf, offset) == PROG_ERR_NONE)
     {
         httpd_resp_set_hdr(req, "Connection", "close");
         httpd_resp_sendstr(req, "Start to program");
@@ -405,7 +412,7 @@ static esp_err_t web_upload_file(httpd_req_t *req, char *path, bool overwrite)
 
     FILE *fd = NULL;
     int received = 0;
-    struct stat file_stat = {0};
+    struct stat file_stat;
     int remaining = req->content_len;
     web_data_t *data = (web_data_t *)req->user_ctx;
 
@@ -548,19 +555,91 @@ esp_err_t web_upload_file_handler(httpd_req_t *req)
     return web_upload_file(req, location, 0 == memcmp(overwrite, "true", sizeof("true")));
 }
 
-esp_err_t web_program_progress_handler(httpd_req_t *req)
+esp_err_t web_query_handler(httpd_req_t *req)
 {
+    char *buf = NULL;
+    size_t buf_size = 0;
+    char type[32] = {0};
     int encode_len = 0;
     web_data_t *data = (web_data_t *)req->user_ctx;
 
-    encode_len = snprintf((char *)data->buf, CONFIG_HTTPD_RESP_BUF_SIZE, "{\"progress\": %d, \"status\": \"%s\"}", programmer_get_progress(), programmer_is_busy() ? ("busy") : ("idle"));
-    httpd_resp_send_chunk(req, (char *)data->buf, encode_len);
-    httpd_resp_send_chunk(req, NULL, 0);
+    buf_size = httpd_req_get_url_query_len(req) + 1;
+    if (buf_size == 1)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request");
+        return ESP_FAIL;
+    }
 
+    buf = (char *)malloc(buf_size);
+    if (!buf)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Not enough ram to store query string");
+        return ESP_FAIL;
+    }
+
+    if (httpd_req_get_url_query_str(req, buf, buf_size) != ESP_OK)
+    {
+        free(buf);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Query string read failed");
+        return ESP_FAIL;
+    }
+
+    if (httpd_query_key_value(buf, "type", type, sizeof(type)) != ESP_OK)
+    {
+        free(buf);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Type is unknown");
+        return ESP_FAIL;
+    }
+
+    if (!strcmp("program-status", type))
+    {
+        programmer_get_status((char *)data->buf, CONFIG_HTTPD_RESP_BUF_SIZE, encode_len);
+        httpd_resp_send_chunk(req, (char *)data->buf, encode_len);
+        httpd_resp_send_chunk(req, NULL, 0);
+    }
+    else
+    {
+        free(buf);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Unsupported type");
+        return ESP_FAIL;
+    }
+
+    free(buf);
     return ESP_OK;
 }
 
 esp_err_t web_online_program_handler(httpd_req_t *req)
 {
+    int received = 0;
+    int remaining = req->content_len;
+    web_data_t *data = (web_data_t *)req->user_ctx;
+
+    while (remaining > 0)
+    {
+        ESP_LOGD(TAG, "Remaining size : %d", remaining);
+        received = httpd_req_recv(req, (char *)data->buf, (remaining <= CONFIG_HTTPD_RESP_BUF_SIZE) ? (remaining) : (CONFIG_HTTPD_RESP_BUF_SIZE));
+
+        if (received <= 0)
+        {
+            if (received == HTTPD_SOCK_ERR_TIMEOUT)
+            {
+                continue;
+            }
+
+            ESP_LOGE(TAG, "File reception failed!");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive file");
+            return ESP_FAIL;
+        }
+
+        if (received && (PROG_ERR_NONE != programmer_write_data(data->buf, received)))
+        {
+            ESP_LOGE(TAG, "File write failed!");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to write file to storage");
+            return ESP_FAIL;
+        }
+
+        remaining -= received;
+    }
+
     return ESP_OK;
 }

@@ -3,3 +3,21 @@
 2、编写一个状态机，该状态机用于执行烧录相关的动作，烧录有两种模式，第一种是在线烧录模式，过程类似于GDB控制DAPLink进行烧录，不会存储固件到Flash中，第二种是是文件烧录模式，可以通过指定烧录算法和程序，可以控制其进行自动烧录。
 
 3、添加配网功能，station模式下如果未连接到网络每间隔30S扫描并尝试连接一次，如果未扫描到则休眠。
+
+在线烧录请求：
+{
+    "program_mode": "online",
+    "flash_addr":0x8000000,
+    "ram_addr":0x2000000,
+    "algorithm":"xxxxx"
+}
+
+文件烧录请求：
+{
+    "program_mode": "offline",
+    "flash_addr":0x8000000,
+    "ram_addr":0x2000000,
+    "algorithm":"xxxxx",
+    "program":"xxxxx"
+}
+
