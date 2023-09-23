@@ -31,7 +31,7 @@ config HTTPD_RESP_BUF_SIZE
 
 config PROGRAMMER_ALGORITHM_ROOT
     string "The folder where the algorithms are stored"
-    default "/data/algo"
+    default "/data/algorithm"
 
 config PROGRAMMER_PROGRAM_ROOT
     string "The folder where the programs are stored"

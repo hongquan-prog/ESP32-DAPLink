@@ -3,173 +3,121 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/message_buffer.h"
-#include "hex_prog.h"
 #include "algo_extractor.h"
-#include "cJSON.h"
 #include "esp_log.h"
+#include "prog_idle.h"
+#include "prog_online.h"
+#include "prog_offline.h"
+#include <sys/stat.h>
 #include <cstring>
 
 #define TAG "programmer"
 
-typedef struct
-{
-    HexProg programmer;
-    AlgoExtractor extractor;
-    FlashIface::program_target_t target;
-    FlashIface::target_cfg_t cfg;
-    MessageBufferHandle_t cmd_buf;
-    SemaphoreHandle_t sync_sig;
-    bool cmd_ret;
-    bool busy;
-} programmer_t;
+static ProgData s_data;
+static Prog *s_prog = nullptr;
+static Prog *s_last_prog = nullptr;
 
-static programmer_t s_programmer;
-
-bool programmer_suffix_check(const char *filename, const char *suffix)
+prog_err_def programmer_request_handle(char *buf, int len)
 {
-    const char *dot = strrchr(filename, '.');
-    if (dot && dot != filename)
+    prog_request_swap_t swap = {buf, len};
+
+    if (s_data.is_busy())
     {
-        return strcmp(dot, suffix) == 0;
+        return PROG_ERR_BUSY;
     }
 
-    return false;
+    s_data.set_swap(&swap);
+    s_data.send_event(PROG_EVT_REQUEST);
+    s_data.wait_sync();
+
+    return static_cast<prog_err_def>(reinterpret_cast<int>(s_data.get_swap()));
 }
 
-bool programmer_file_exist(const char *filename)
+static void programmer_switch_mode(prog_mode_def mode)
 {
-    FILE *fp = fopen(filename, "r");
+    static ProgIdle prog_idle;
+    static ProgOnline prog_online;
+    static ProgOffline prog_offline;
 
-    if (fp)
+    s_last_prog = s_prog;
+
+    switch (mode)
     {
-        fclose(fp);
+    case PROG_ONLINE_MODE:
+        s_prog = &prog_online;
+        break;
+    case PROG_OFFLINE_MODE:
+        s_prog = &prog_offline;
+        break;
+    case PROG_IDLE_MODE:
+        s_prog = &prog_idle;
+        break;
+    default:
+        break;
     }
 
-    return (fp != nullptr);
+    if (s_last_prog && s_prog)
+    {
+        ESP_LOGI(TAG, "%s--> %s", s_last_prog->name(), s_prog->name());
+    }
 }
 
 static void programmer_task(void *pvParameters)
 {
-    cJSON *root = NULL;
-    cJSON *ram_addr_item = NULL;
-    cJSON *flash_addr_item = NULL;
-    cJSON *algo_item = NULL;
-    cJSON *program_item = NULL;
+    prog_evt_def evt = PROG_EVT_NONE;
+    ProgData &obj = *(reinterpret_cast<ProgData *>(pvParameters));
 
-    size_t readBytes = 0;
-    uint32_t ram_addr = 0;
-    uint32_t flash_addr = 0;
-    TickType_t start_time = 0;
-    FlashIface::target_cfg_t &cfg = s_programmer.cfg;
-    static char buf[CONFIG_HTTPD_RESP_BUF_SIZE] = {0};
-    static char algo_path[CONFIG_PROGRAMMER_FILE_MAX_LEN] = {0};
-    static char program_path[CONFIG_PROGRAMMER_FILE_MAX_LEN] = {0};
+    Prog::register_switch_mode_function(programmer_switch_mode);
+    Prog::switch_mode(PROG_IDLE_MODE);
 
     for (;;)
     {
-        flash_addr = 0;
-        ram_addr = 0x20000000;
-        readBytes = xMessageBufferReceive(s_programmer.cmd_buf, buf, CONFIG_HTTPD_RESP_BUF_SIZE, portMAX_DELAY);
+        evt = obj.wait_event();
 
-        if (readBytes)
+        switch (evt)
         {
-            root = cJSON_Parse(buf);
-            ram_addr_item = cJSON_GetObjectItem(root, "ram_addr");
-            flash_addr_item = cJSON_GetObjectItem(root, "flash_addr");
-            program_item = cJSON_GetObjectItem(root, "program");
-            algo_item = cJSON_GetObjectItem(root, "algorithm");
-            s_programmer.programmer.reset_progress();
-
-            if (algo_item && algo_item->type == cJSON_String)
-            {
-                snprintf(algo_path, sizeof(algo_path), "%s/%s", CONFIG_PROGRAMMER_ALGORITHM_ROOT, algo_item->valuestring);
-            }
-
-            if (program_item && program_item->type == cJSON_String)
-            {
-                snprintf(program_path, sizeof(program_path), "%s/%s", CONFIG_PROGRAMMER_PROGRAM_ROOT, program_item->valuestring);
-            }
-
-            if (!root || !algo_item || !program_item || (algo_item->type != cJSON_String) || (program_item->type != cJSON_String) ||
-                !programmer_file_exist(algo_path) || !programmer_file_exist(algo_path))
-            {
-                s_programmer.cmd_ret = false;
-                cJSON_Delete(root);
-                xSemaphoreGive(s_programmer.sync_sig);
-                continue;
-            }
-
-            if (ram_addr_item && ram_addr_item->type == cJSON_Number)
-            {
-                ram_addr = ram_addr_item->valueint;
-            }
-
-            // bin 文件必须有flash地址
-            if (programmer_suffix_check(algo_path, ".bin"))
-            {
-                if (flash_addr_item && (flash_addr_item->type == cJSON_Number))
-                {
-                    flash_addr = flash_addr_item->valueint;
-                }
-                else
-                {
-                    s_programmer.cmd_ret = false;
-                    cJSON_Delete(root);
-                    xSemaphoreGive(s_programmer.sync_sig);
-                    continue;
-                }
-            }
-
-            s_programmer.cmd_ret = true;
-            s_programmer.busy = true;
-            xSemaphoreGive(s_programmer.sync_sig);
-
-            if (s_programmer.extractor.extract(algo_path, s_programmer.target, s_programmer.cfg, ram_addr))
-            {
-                start_time = xTaskGetTickCount();
-                if (!flash_addr)
-                    s_programmer.programmer.programing_hex(cfg, program_path);
-                else
-                    s_programmer.programmer.programming_bin(cfg, flash_addr, program_path);
-                ESP_LOGI(TAG, "Elapsed time %ld ms", (xTaskGetTickCount() - start_time) * portTICK_PERIOD_MS);
-
-                if (s_programmer.target.algo_blob)
-                    delete[] s_programmer.target.algo_blob;
-            }
-
-            cJSON_Delete(root);
-            s_programmer.busy = false;
+        case PROG_EVT_REQUEST:
+            s_prog->request_handle(obj);
+            break;
+        case PROG_EVT_PROGRAM_START:
+            s_prog->program_start_handle(obj);
+            break;
+        case PROG_EVT_PROGRAM_TIMEOUT:
+            s_prog->program_timeout_handle(obj);
+            break;
+        case PROG_EVT_PROGRAM_DATA_RECVED:
+            s_prog->program_data_handle(obj);
+            break;
+        default:
+            break;
         }
     }
 }
 
 void programmer_init(void)
 {
-    s_programmer.busy = false;
-    s_programmer.cmd_buf = xMessageBufferCreate(CONFIG_HTTPD_RESP_BUF_SIZE);
-    s_programmer.sync_sig = xSemaphoreCreateBinary();
-    xTaskCreate(programmer_task, "programmer", 1024 * 4, NULL, 2, NULL);
+    if (FileProgrammer::is_exist(CONFIG_PROGRAMMER_ALGORITHM_ROOT) != true)
+        mkdir(CONFIG_PROGRAMMER_ALGORITHM_ROOT, 0777);
+
+    if (FileProgrammer::is_exist(CONFIG_PROGRAMMER_PROGRAM_ROOT) != true)
+        mkdir(CONFIG_PROGRAMMER_PROGRAM_ROOT, 0777);
+
+    s_data.init();
+    xTaskCreate(programmer_task, "programmer", 1024 * 4, &s_data, 2, NULL);
 }
 
-bool programmer_put_cmd(char *msg, int len)
+void programmer_get_status(char *buf, int size, int &encode_len)
 {
-    if (s_programmer.busy)
-    {
-        return false;
-    }
-
-    xMessageBufferSend(s_programmer.cmd_buf, msg, len, portMAX_DELAY);
-    xSemaphoreTake(s_programmer.sync_sig, portMAX_DELAY);
-
-    return s_programmer.cmd_ret;
+    encode_len = snprintf(buf, size, "{\"progress\": %d, \"status\": \"%s\"}", s_data.get_progress(), s_data.is_busy() ? ("busy") : ("idle"));
 }
 
-int programmer_get_progress(void)
+prog_err_def programmer_write_data(uint8_t *data, int len)
 {
-    return s_programmer.programmer.get_progress();
-}
+    prog_data_swap_t swap = {data, len};
 
-bool programmer_is_busy()
-{
-    return s_programmer.busy;
+    s_data.set_swap(&swap);
+    s_data.send_event(PROG_EVT_PROGRAM_DATA_RECVED);
+    s_data.wait_sync();
+
+    return static_cast<prog_err_def>(reinterpret_cast<int>(s_data.get_swap()));
 }

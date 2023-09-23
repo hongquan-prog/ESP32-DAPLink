@@ -1,14 +1,8 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "prog_data.h"
 
 void programmer_init(void);
-bool programmer_put_cmd(char *msg, int len);
-int programmer_get_progress(void);
-bool programmer_is_busy();
-
-#ifdef __cplusplus
-}
-#endif
+prog_err_def programmer_request_handle(char *buf, int len);
+void programmer_get_status(char *buf, int size, int &encode_len);
+prog_err_def programmer_write_data(uint8_t *data, int len);
