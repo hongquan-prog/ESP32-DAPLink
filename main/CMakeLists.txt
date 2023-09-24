@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.c" 
+idf_component_register(SRCS "main.cpp" 
                         "cdc_uart.c"
                         "msc_disk.c"
                         "web_handler.cpp"

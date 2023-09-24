@@ -34,21 +34,20 @@
 #include "programmer.h"
 #include "protocol_examples_common.h"
 
-#include "tcp_server.h"
-#include "tcp_netconn.h"
-#include "kcp_server.h"
-#include "DAP_handle.h"
 
 static const char *TAG = "main";
 static httpd_handle_t http_server = NULL;
 TaskHandle_t kDAPTaskHandle = NULL;
 
-uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
+extern "C" void tcp_server_task(void *pvParameters);
+extern "C" void DAP_Thread(void *pvParameters);
+
+extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
 {
     return 0;
 }
 
-void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
+extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
 {
     static uint8_t s_tx_buf[CFG_TUD_HID_EP_BUFSIZE];
 
@@ -66,7 +65,7 @@ static void connect_handler(void *arg, esp_event_base_t event_base, int32_t even
     web_server_init((httpd_handle_t *)arg);
 }
 
- void app_main(void)
+ extern "C" void app_main(void)
 {
     bool ret = false;
 
