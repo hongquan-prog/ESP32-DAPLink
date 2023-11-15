@@ -34,8 +34,13 @@
 #include "programmer.h"
 #include "protocol_examples_common.h"
 
+
 static const char *TAG = "main";
-static httpd_handle_t http_server = nullptr;
+static httpd_handle_t http_server = NULL;
+TaskHandle_t kDAPTaskHandle = NULL;
+
+extern "C" void tcp_server_task(void *pvParameters);
+extern "C" void DAP_Thread(void *pvParameters);
 
 extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
 {
@@ -60,7 +65,7 @@ static void connect_handler(void *arg, esp_event_base_t event_base, int32_t even
     web_server_init((httpd_handle_t *)arg);
 }
 
-extern "C" void app_main(void)
+ extern "C" void app_main(void)
 {
     bool ret = false;
 
@@ -72,11 +77,11 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(example_connect());
 
     tinyusb_config_t tusb_cfg = {
-        .device_descriptor = nullptr,
-        .string_descriptor = nullptr,
+        .device_descriptor = NULL,
+        .string_descriptor = NULL,
         .string_descriptor_count = 0,
         .external_phy = false,
-        .configuration_descriptor = nullptr,
+        .configuration_descriptor = NULL,
         .self_powered = false,
         .vbus_monitor_io = 0};
 
@@ -107,4 +112,15 @@ extern "C" void app_main(void)
     cdc_uart_register_rx_handler(CDC_UART_USB_HANDLER, usb_cdc_send_to_host, (void *)TINYUSB_CDC_ACM_0);
     cdc_uart_register_rx_handler(CDC_UART_WEB_HANDLER, web_send_to_clients, &http_server);
     ESP_LOGI(TAG, "USB initialization DONE");
+
+
+        // Specify the usbip server task
+#if (USE_TCP_NETCONN == 1)
+    xTaskCreate(tcp_netconn_task, "tcp_server", 4096, NULL, 14, NULL);
+#else // BSD style
+    xTaskCreate(tcp_server_task, "tcp_server", 4096, NULL, 14, NULL);
+#endif
+
+    // DAP handle task
+    xTaskCreate(DAP_Thread, "DAP_Task", 2048, NULL, 10, &kDAPTaskHandle);
 }
