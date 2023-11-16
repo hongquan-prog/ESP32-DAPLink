@@ -20,7 +20,7 @@
 #include "main/wifi_configuration.h"
 
 #include "components/USBIP/usb_descriptor.h"
-#include "components/DAP/include/DAP.h"
+#include "components/DAP/Include/DAP.h"
 //#include "components/DAP/include/swo.h"
 
 #include "freertos/FreeRTOS.h"

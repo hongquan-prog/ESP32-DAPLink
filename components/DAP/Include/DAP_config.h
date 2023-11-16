@@ -217,12 +217,9 @@ __STATIC_INLINE void PORT_SWD_SETUP(void)
 	gpio_set_direction(PIN_SWCLK, GPIO_MODE_INPUT_OUTPUT);
 	gpio_pad_select_gpio(PIN_SWDIO);
 	gpio_set_direction(PIN_SWDIO, GPIO_MODE_INPUT_OUTPUT);
-	gpio_pad_select_gpio(PIN_nRESET);
-	gpio_set_direction(PIN_nRESET, GPIO_MODE_INPUT_OUTPUT);
 
 	gpio_set_level(PIN_SWCLK, 1);
 	gpio_set_level(PIN_SWDIO, 1);
-	gpio_set_level(PIN_nRESET, 1);
 }
 
 /** Disable JTAG/SWD I/O Pins.
@@ -508,9 +505,8 @@ __STATIC_INLINE void DAP_SETUP(void)
 {
     PORT_JTAG_SETUP();
 	PORT_SWD_SETUP();
-	gpio_set_direction(PIN_SWCLK, GPIO_MODE_INPUT_OUTPUT);
-	gpio_set_direction(PIN_SWDIO, GPIO_MODE_INPUT_OUTPUT);	//
-	gpio_set_direction(PIN_nRESET, GPIO_MODE_INPUT_OUTPUT); //
+	gpio_set_direction(PIN_nRESET, GPIO_MODE_INPUT_OUTPUT);
+	gpio_set_level(PIN_nRESET, 1);
 	// Configure: LED as output (turned off)
 	gpio_set_direction(PIN_LED_CONNECTED, GPIO_MODE_OUTPUT);
 	LED_CONNECTED_OUT(0);
