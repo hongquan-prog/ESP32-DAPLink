@@ -41,4 +41,19 @@ config PROGRAMMER_FILE_MAX_LEN
     int "Maximum length of file path"
     default 128
 
+config ENABLE_WEBUSB
+    bool "Enable bulk transfer"
+    default y
+
+if ENABLE_WEBUSB
+    config TINYUSB_DESC_WEBUSB_STRING
+        string "WEBUSB device name"
+        default "ESP32 Bulk CMSIS-DAP"
+        depends on ENABLE_WEBUSB
+    
+    config WEBUSB_URL
+        string "WebUSB URL"
+        default "example.tinyusb.org/webusb-serial/index.html"
+        depends on ENABLE_WEBUSB
+endif
 endmenu

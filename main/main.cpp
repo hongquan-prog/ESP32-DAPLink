@@ -34,7 +34,6 @@
 #include "programmer.h"
 #include "protocol_examples_common.h"
 
-
 static const char *TAG = "main";
 static httpd_handle_t http_server = NULL;
 TaskHandle_t kDAPTaskHandle = NULL;
@@ -46,6 +45,73 @@ extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, h
 {
     return 0;
 }
+
+#ifdef CONFIG_ENABLE_WEBUSB
+
+extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request)
+{
+    uint16_t total_len = 0;
+    uint8_t *desc_ms_os_20 = NULL;
+    tusb_desc_webusb_url_t *url = NULL;
+
+    /* Nothing to do with DATA & ACK stage */
+    if (stage != CONTROL_STAGE_SETUP)
+    {
+        return true;
+    }
+
+    switch (request->bmRequestType_bit.type)
+    {
+    case TUSB_REQ_TYPE_VENDOR:
+        switch (request->bRequest)
+        {
+        case VENDOR_REQUEST_WEBUSB:
+            /* Match vendor request in BOS descriptor and get landing page url */
+            url = get_webusb_url();
+            return tud_control_xfer(rhport, request, reinterpret_cast<void *>(url), url->bLength);
+        case VENDOR_REQUEST_MICROSOFT:
+            if (request->wIndex != 7)
+            {
+                return false;
+            }
+
+            /* Get Microsoft OS 2.0 compatible descriptor */
+
+            desc_ms_os_20 = get_ms_descriptor();
+            total_len = *reinterpret_cast<uint16_t *>(desc_ms_os_20 + 8);
+            return tud_control_xfer(rhport, request, reinterpret_cast<void *>(desc_ms_os_20), total_len);
+        default:
+            break;
+        }
+        break;
+    case TUSB_REQ_TYPE_CLASS:
+        if (request->bRequest == 0x22)
+        {
+            /* Webserial simulates the CDC_REQUEST_SET_CONTROL_LINE_STATE (0x22) to connect and disconnect */
+            return tud_control_status(rhport, request);
+        }
+        break;
+    default:
+        break;
+    }
+
+    /* Stall unknown request */
+    return false;
+}
+
+extern "C" void tud_vendor_rx_cb(uint8_t itf)
+{
+    static uint8_t in[DAP_PACKET_SIZE] = {0};
+    static uint8_t out[DAP_PACKET_SIZE] = {0};
+
+    if (tud_vendor_n_read(itf, in, sizeof(in)) > 0)
+    {
+        tud_vendor_n_write(itf, out, DAP_ProcessCommand(in, out) & 0xFFFF);
+        tud_vendor_n_flush(itf);
+    }
+}
+
+#endif
 
 extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
 {
@@ -65,7 +131,7 @@ static void connect_handler(void *arg, esp_event_base_t event_base, int32_t even
     web_server_init((httpd_handle_t *)arg);
 }
 
- extern "C" void app_main(void)
+extern "C" void app_main(void)
 {
     bool ret = false;
 
@@ -113,8 +179,7 @@ static void connect_handler(void *arg, esp_event_base_t event_base, int32_t even
     cdc_uart_register_rx_handler(CDC_UART_WEB_HANDLER, web_send_to_clients, &http_server);
     ESP_LOGI(TAG, "USB initialization DONE");
 
-
-        // Specify the usbip server task
+    // Specify the usbip server task
 #if (USE_TCP_NETCONN == 1)
     xTaskCreate(tcp_netconn_task, "tcp_server", 4096, NULL, 14, NULL);
 #else // BSD style
