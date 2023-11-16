@@ -277,9 +277,9 @@ static uint8_t SWD_Transfer##speed (uint32_t request, uint32_t *data) {         
 #define PIN_DELAY() PIN_DELAY_FAST()
 SWD_TransferFunction(Fast)
 
-#undef  PIN_DELAY
-#define PIN_DELAY() PIN_DELAY_SLOW(DAP_Data.clock_delay)
-SWD_TransferFunction(Slow)
+// #undef  PIN_DELAY
+// #define PIN_DELAY() PIN_DELAY_SLOW(DAP_Data.clock_delay)
+// SWD_TransferFunction(Slow)
 
 // SWD Transfer I/O
 //   request: A[3:2] RnW APnDP
