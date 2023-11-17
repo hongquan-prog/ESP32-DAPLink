@@ -2,9 +2,17 @@ menu "ESP32 DAPLink Configuration"
 
 config TINYUSB_DESC_HID_STRING
     string "HID Device Name"
-    default "DAP HID Device"
+    default "ESP32 HID CMSIS-DAP"
     help
         HID device name
+
+config TINYUSB_DESC_VENDOR_STRING
+    string "Vendor Bulk Device Name"
+    default "ESP32 Bulk CMSIS-DAP"
+
+config WEBUSB_URL
+        string "WebUSB URL"
+        default "example.tinyusb.org/webusb-serial/index.html"
 
 choice MSC_STORAGE_MEDIA
     prompt "Storage Media Used"
@@ -20,6 +28,22 @@ choice MSC_STORAGE_MEDIA
         depends on IDF_TARGET_ESP32S3
         depends on TINYUSB_MSC_ENABLED
 endchoice
+
+choice DAPLINK_CONNECT_METHOD
+    prompt "DAPLink connection method"
+    default BULK_DAPLINK
+    config HID_DAPLINK
+        bool "Connect to computer by HID"
+
+    config BULK_DAPLINK
+        bool "Connect to computer by bulk transmission"
+        depends on TINYUSB_VENDOR_ENABLED
+endchoice
+
+config DAPLINK_DESC_STRING
+    string
+    default TINYUSB_DESC_HID_STRING if HID_DAPLINK
+    default TINYUSB_DESC_VENDOR_STRING if BULK_DAPLINK
 
 config HTTPD_MAX_OPENED_SOCKETS
     int "The max opened sockets of http server"
@@ -41,19 +65,4 @@ config PROGRAMMER_FILE_MAX_LEN
     int "Maximum length of file path"
     default 128
 
-config ENABLE_WEBUSB
-    bool "Enable bulk transfer"
-    default y
-
-if ENABLE_WEBUSB
-    config TINYUSB_DESC_WEBUSB_STRING
-        string "WEBUSB device name"
-        default "ESP32 Bulk CMSIS-DAP"
-        depends on ENABLE_WEBUSB
-    
-    config WEBUSB_URL
-        string "WebUSB URL"
-        default "example.tinyusb.org/webusb-serial/index.html"
-        depends on ENABLE_WEBUSB
-endif
 endmenu

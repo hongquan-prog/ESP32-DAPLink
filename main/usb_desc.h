@@ -59,10 +59,10 @@ extern "C"
     };
 
     tusb_desc_device_t *get_device_descriptor(void);
-    const char **get_string_descriptor(bool enable_msc, bool enable_webusb);
+    const char **get_string_descriptor(bool enable_msc);
     int get_string_descriptor_count(void);
-    const uint8_t *get_configuration_descriptor(bool enable_msc, bool enable_webusb);
-#ifdef CONFIG_ENABLE_WEBUSB
+    const uint8_t *get_configuration_descriptor(bool enable_msc, bool bulk_dap);
+#ifdef CONFIG_BULK_DAPLINK
     uint8_t *get_ms_descriptor(void);
     tusb_desc_webusb_url_t *get_webusb_url(void);
 #endif

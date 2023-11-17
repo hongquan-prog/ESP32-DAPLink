@@ -4,7 +4,7 @@
 #define MS_OS_20_DESC_LEN 0xB2
 #define BOS_TOTAL_LEN (TUD_BOS_DESC_LEN + TUD_BOS_WEBUSB_DESC_LEN + TUD_BOS_MICROSOFT_OS_DESC_LEN)
 
-#ifdef CONFIG_ENABLE_WEBUSB
+#ifdef CONFIG_BULK_DAPLINK
 #define TUSB_DESC_WITH_MSC_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_MSC_DESC_LEN + TUD_CDC_DESC_LEN + TUD_VENDOR_DESC_LEN)
 #else
 #define TUSB_DESC_WITH_MSC_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_MSC_DESC_LEN + TUD_CDC_DESC_LEN + TUD_HID_INOUT_DESC_LEN)
@@ -49,8 +49,7 @@ static struct
     int configuration_length;
 } descriptor = {0};
 
-#ifdef CONFIG_ENABLE_WEBUSB
-
+#ifdef CONFIG_BULK_DAPLINK
 uint8_t const *tud_descriptor_bos_cb(void)
 {
     // BOS Descriptor is required for webUSB
@@ -116,7 +115,7 @@ tusb_desc_device_t *get_device_descriptor(void)
     return &descriptor_config;
 }
 
-const char **get_string_descriptor(bool enable_msc, bool enable_webusb)
+const char **get_string_descriptor(bool enable_msc)
 {
     if (descriptor.string_num)
     {
@@ -131,7 +130,7 @@ const char **get_string_descriptor(bool enable_msc, bool enable_webusb)
     descriptor.array[STRID_PRODUCT] = CONFIG_TINYUSB_DESC_PRODUCT_STRING;
     descriptor.array[STRID_SERIAL_NUMBER] = CONFIG_TINYUSB_DESC_SERIAL_STRING;
     descriptor.array[STRID_CDC_INTERFACE] = CONFIG_TINYUSB_DESC_CDC_STRING;
-    descriptor.array[STRID_HID_VENDOR_INTERFACE] = (enable_webusb) ? (CONFIG_TINYUSB_DESC_WEBUSB_STRING) : (CONFIG_TINYUSB_DESC_HID_STRING);
+    descriptor.array[STRID_HID_VENDOR_INTERFACE] = CONFIG_DAPLINK_DESC_STRING;
     descriptor.string_num = STRID_NUM - 1;
 
     if (enable_msc)
@@ -148,7 +147,7 @@ int get_string_descriptor_count(void)
     return descriptor.string_num;
 }
 
-const uint8_t *get_configuration_descriptor(bool enable_msc, bool enable_webusb)
+const uint8_t *get_configuration_descriptor(bool enable_msc, bool bulk_dap)
 {
     if (descriptor.configuration_length)
     {
@@ -158,8 +157,8 @@ const uint8_t *get_configuration_descriptor(bool enable_msc, bool enable_webusb)
     uint8_t *p = descriptor.desc_configuration;
     uint8_t const *total = (enable_msc) ? (desc_configuration_total_enable_msc) : (desc_configuration_total_disable_msc);
     int total_size = (enable_msc) ? (sizeof(desc_configuration_total_enable_msc)) : (sizeof(desc_configuration_total_disable_msc));
-    uint8_t const *hid_vendor = (enable_webusb) ? (desc_configuration_vendor) : (desc_configuration_hid);
-    int hid_vendor_size = (enable_webusb) ? (sizeof(desc_configuration_vendor)) : (sizeof(desc_configuration_hid));
+    uint8_t const *hid_vendor = (bulk_dap) ? (desc_configuration_vendor) : (desc_configuration_hid);
+    int hid_vendor_size = (bulk_dap) ? (sizeof(desc_configuration_vendor)) : (sizeof(desc_configuration_hid));
 
     descriptor.configuration_length = 0;
     memcpy(p, total, total_size);

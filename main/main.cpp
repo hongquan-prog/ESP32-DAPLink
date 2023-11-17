@@ -46,8 +46,7 @@ extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, h
     return 0;
 }
 
-#ifdef CONFIG_ENABLE_WEBUSB
-
+#ifdef CONFIG_BULK_DAPLINK
 extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request)
 {
     uint16_t total_len = 0;
@@ -110,7 +109,6 @@ extern "C" void tud_vendor_rx_cb(uint8_t itf)
         tud_vendor_n_flush(itf);
     }
 }
-
 #endif
 
 extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
@@ -165,9 +163,13 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "USB initialization");
 
     ret = msc_dick_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH);
-    tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret, CONFIG_ENABLE_WEBUSB);
+#ifdef CONFIG_BULK_DAPLINK
+    tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret, true);
+#elif
+    tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret, false);
+#endif
     tusb_cfg.string_descriptor_count = get_string_descriptor_count();
-    tusb_cfg.string_descriptor = get_string_descriptor(ret, CONFIG_ENABLE_WEBUSB);
+    tusb_cfg.string_descriptor = get_string_descriptor(ret);
     tusb_cfg.device_descriptor = get_device_descriptor();
 
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
