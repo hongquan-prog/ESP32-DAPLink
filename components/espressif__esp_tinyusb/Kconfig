@@ -204,8 +204,8 @@ menu "TinyUSB Stack"
 
     menu "Vendor Interface Device Class (vendor)"
         config TINYUSB_VENDOR_ENABLED
-            bool "Enable TinyUSB Vendor feature"
-            default y
+            bool
+            default n
             help
                 Enable TinyUSB Vendor feature.
     endmenu # "Vendor Device Class (vendor)"

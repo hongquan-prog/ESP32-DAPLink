@@ -37,7 +37,7 @@ choice DAPLINK_CONNECT_METHOD
 
     config BULK_DAPLINK
         bool "Connect to computer by bulk transmission"
-        depends on TINYUSB_VENDOR_ENABLED
+        select TINYUSB_VENDOR_ENABLED
 endchoice
 
 config DAPLINK_DESC_STRING

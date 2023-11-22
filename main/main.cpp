@@ -46,7 +46,7 @@ extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, h
     return 0;
 }
 
-#ifdef CONFIG_BULK_DAPLINK
+#ifdef CONFIG_TINYUSB_VENDOR_ENABLED
 extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request)
 {
     uint16_t total_len = 0;
@@ -165,7 +165,7 @@ extern "C" void app_main(void)
     ret = msc_dick_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH);
 #ifdef CONFIG_BULK_DAPLINK
     tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret, true);
-#elif
+#else
     tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret, false);
 #endif
     tusb_cfg.string_descriptor_count = get_string_descriptor_count();
