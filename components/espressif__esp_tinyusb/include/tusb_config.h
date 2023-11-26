@@ -142,7 +142,12 @@ extern "C" {
 #define CFG_TUD_DFU                 CONFIG_TINYUSB_DFU_MODE_DFU
 #define CFG_TUD_DFU_RUNTIME         CONFIG_TINYUSB_DFU_MODE_DFU_RUNTIME
 #define CFG_TUD_BTH                 CONFIG_TINYUSB_BTH_ENABLED
-#define CFG_TUD_VENDOR              CONFIG_TINYUSB_VENDOR_ENABLED
+
+#if (defined CONFIG_TINYUSB_VENDOR_ENABLED) && (CONFIG_TINYUSB_VENDOR_ENABLED == 1)
+#define CFG_TUD_VENDOR              1
+#else
+#define CFG_TUD_VENDOR              0
+#endif
 
 #ifdef __cplusplus
 }

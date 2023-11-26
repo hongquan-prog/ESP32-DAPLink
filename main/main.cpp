@@ -163,13 +163,9 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "USB initialization");
 
     ret = msc_dick_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH);
-#ifdef CONFIG_BULK_DAPLINK
-    tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret, true);
-#else
-    tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret, false);
-#endif
-    tusb_cfg.string_descriptor_count = get_string_descriptor_count();
+    tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret);
     tusb_cfg.string_descriptor = get_string_descriptor(ret);
+    tusb_cfg.string_descriptor_count = get_string_descriptor_count();
     tusb_cfg.device_descriptor = get_device_descriptor();
 
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));

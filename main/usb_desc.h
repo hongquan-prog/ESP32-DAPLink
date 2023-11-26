@@ -22,7 +22,8 @@ extern "C"
     {
         ITF_NUM_CDC = 0,
         ITF_NUM_CDC_DATA,
-        ITF_NUM_HID_VENDOR,
+        ITF_NUM_HID,
+        ITF_NUM_VENDOR = ITF_NUM_HID,
         ITF_NUM_MSC,
         ITF_NUM_TOTAL
     };
@@ -34,7 +35,9 @@ extern "C"
         STRID_PRODUCT,
         STRID_SERIAL_NUMBER,
         STRID_CDC_INTERFACE,
-        STRID_HID_VENDOR_INTERFACE,
+        STRID_HID_INTERFACE,
+        STRID_DAPLINK_INTERFACE = STRID_HID_INTERFACE,
+        STRID_VENDOR_INTERFACE = STRID_HID_INTERFACE,
         STRID_MSC_INTERFACE,
         STRID_NUM
     };
@@ -46,8 +49,10 @@ extern "C"
         EDPT_CDC_NOTIFY = 0x81,
         EDPT_CDC_OUT = 0x02,
         EDPT_CDC_IN = 0x82,
-        EDPT_HID_VENDOR_OUT = 0x03,
-        EDPT_HID_VENDOR_IN = 0x83,
+        EDPT_HID_OUT = 0x03,
+        EDPT_HID_IN = 0x83,
+        EDPT_VENDOR_OUT = EDPT_HID_OUT,
+        EDPT_VENDOR_IN = EDPT_HID_IN,
         EDPT_MSC_OUT = 0x04,
         EDPT_MSC_IN = 0x84,
     };
@@ -61,7 +66,7 @@ extern "C"
     tusb_desc_device_t *get_device_descriptor(void);
     const char **get_string_descriptor(bool enable_msc);
     int get_string_descriptor_count(void);
-    const uint8_t *get_configuration_descriptor(bool enable_msc, bool bulk_dap);
+    const uint8_t *get_configuration_descriptor(bool enable_msc);
 #ifdef CONFIG_TINYUSB_VENDOR_ENABLED
     uint8_t *get_ms_descriptor(void);
     tusb_desc_webusb_url_t *get_webusb_url(void);

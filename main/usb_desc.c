@@ -5,29 +5,38 @@
 #define BOS_TOTAL_LEN (TUD_BOS_DESC_LEN + TUD_BOS_WEBUSB_DESC_LEN + TUD_BOS_MICROSOFT_OS_DESC_LEN)
 
 #ifdef CONFIG_BULK_DAPLINK
-#define TUSB_DESC_WITH_MSC_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_MSC_DESC_LEN + TUD_CDC_DESC_LEN + TUD_VENDOR_DESC_LEN)
+#define DAPLINK_DESC_LEN TUD_VENDOR_DESC_LEN
 #else
-#define TUSB_DESC_WITH_MSC_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_MSC_DESC_LEN + TUD_CDC_DESC_LEN + TUD_HID_INOUT_DESC_LEN)
+#define DAPLINK_DESC_LEN TUD_HID_INOUT_DESC_LEN
 #endif
+
+#define TUSB_DESC_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_MSC_DESC_LEN + TUD_CDC_DESC_LEN + DAPLINK_DESC_LEN)
 
 static uint8_t const desc_hid_dap_report[] = {TUD_HID_REPORT_DESC_GENERIC_INOUT(CFG_TUD_HID_EP_BUFSIZE)};
 // Config number, interface count, string index, total length, attribute, power in mA
-static uint8_t const desc_configuration_total_enable_msc[] = {TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, TUSB_DESC_WITH_MSC_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100)};
+static uint8_t const desc_configuration_total_enable_msc[] = {TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, TUSB_DESC_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100)};
 // Config number, interface count, string index, total length, attribute, power in mA
-static uint8_t const desc_configuration_total_disable_msc[] = {TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, (TUSB_DESC_WITH_MSC_TOTAL_LEN - TUD_MSC_DESC_LEN), TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100)};
+static uint8_t const desc_configuration_total_disable_msc[] = {TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, (TUSB_DESC_TOTAL_LEN - TUD_MSC_DESC_LEN), TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100)};
 // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
 static uint8_t const desc_configuration_cdc[] = {TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, STRID_CDC_INTERFACE, EDPT_CDC_NOTIFY, 8, EDPT_CDC_OUT, EDPT_CDC_IN, CFG_TUD_CDC_EP_BUFSIZE)};
+#ifdef CONFIG_BULK_DAPLINK
 // Interface number, string index, EP Out & IN address, EP size
-static uint8_t const desc_configuration_vendor[] = {TUD_VENDOR_DESCRIPTOR(ITF_NUM_HID_VENDOR, STRID_HID_VENDOR_INTERFACE, EDPT_HID_VENDOR_OUT, EDPT_HID_VENDOR_IN, TUD_OPT_HIGH_SPEED ? 512 : 64)};
+static uint8_t const desc_configuration_vendor[] = {TUD_VENDOR_DESCRIPTOR(ITF_NUM_VENDOR, STRID_VENDOR_INTERFACE, EDPT_VENDOR_OUT, EDPT_VENDOR_IN, TUD_OPT_HIGH_SPEED ? 512 : 64)};
+#else
 // Interface number, string index, protocol, report descriptor len, EP In & Out address, size & polling interval
-static uint8_t const desc_configuration_hid[] = {TUD_HID_INOUT_DESCRIPTOR(ITF_NUM_HID_VENDOR, STRID_HID_VENDOR_INTERFACE, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_dap_report), EDPT_HID_VENDOR_OUT, EDPT_HID_VENDOR_IN, CFG_TUD_HID_EP_BUFSIZE, 1)};
+static uint8_t const desc_configuration_hid[] = {TUD_HID_INOUT_DESCRIPTOR(ITF_NUM_HID, STRID_HID_INTERFACE, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_dap_report), EDPT_HID_OUT, EDPT_HID_IN, CFG_TUD_HID_EP_BUFSIZE, 1)};
+#endif
 // Interface number, string index, EP Out & EP In address, EP size
 static uint8_t const desc_configuration_msc[] = {TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, STRID_MSC_INTERFACE, EDPT_MSC_OUT, EDPT_MSC_IN, TUD_OPT_HIGH_SPEED ? 512 : 64)};
 
 static tusb_desc_device_t descriptor_config = {
     .bLength = sizeof(descriptor_config),
     .bDescriptorType = TUSB_DESC_DEVICE,
+#ifdef CONFIG_BULK_DAPLINK
     .bcdUSB = 0x0210,
+#else
+    .bcdUSB = 0x0200,
+#endif
     .bDeviceClass = TUSB_CLASS_MISC,
     .bDeviceSubClass = MISC_SUBCLASS_COMMON,
     .bDeviceProtocol = MISC_PROTOCOL_IAD,
@@ -45,7 +54,7 @@ static struct
 {
     const char *array[STRID_NUM];
     int string_num;
-    uint8_t desc_configuration[TUSB_DESC_WITH_MSC_TOTAL_LEN];
+    uint8_t desc_configuration[TUSB_DESC_TOTAL_LEN];
     int configuration_length;
 } descriptor = {0};
 
@@ -70,7 +79,7 @@ uint8_t *get_ms_descriptor(void)
         // Configuration subset header: length, type, configuration index, reserved, configuration total length
         U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_CONFIGURATION), 0, 0, U16_TO_U8S_LE(MS_OS_20_DESC_LEN - 0x0A),
         // Function Subset header: length, type, first interface, reserved, subset length
-        U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_FUNCTION), ITF_NUM_HID_VENDOR, 0, U16_TO_U8S_LE(MS_OS_20_DESC_LEN - 0x0A - 0x08),
+        U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_FUNCTION), ITF_NUM_VENDOR, 0, U16_TO_U8S_LE(MS_OS_20_DESC_LEN - 0x0A - 0x08),
         // MS OS 2.0 Compatible ID descriptor: length, type, compatible ID, sub compatible ID
         U16_TO_U8S_LE(0x0014), U16_TO_U8S_LE(MS_OS_20_FEATURE_COMPATBLE_ID), 'W', 'I', 'N', 'U', 'S', 'B', 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // sub-compatible
@@ -130,7 +139,7 @@ const char **get_string_descriptor(bool enable_msc)
     descriptor.array[STRID_PRODUCT] = CONFIG_TINYUSB_DESC_PRODUCT_STRING;
     descriptor.array[STRID_SERIAL_NUMBER] = CONFIG_TINYUSB_DESC_SERIAL_STRING;
     descriptor.array[STRID_CDC_INTERFACE] = CONFIG_TINYUSB_DESC_CDC_STRING;
-    descriptor.array[STRID_HID_VENDOR_INTERFACE] = CONFIG_DAPLINK_DESC_STRING;
+    descriptor.array[STRID_DAPLINK_INTERFACE] = CONFIG_DAPLINK_DESC_STRING;
     descriptor.string_num = STRID_NUM - 1;
 
     if (enable_msc)
@@ -147,7 +156,7 @@ int get_string_descriptor_count(void)
     return descriptor.string_num;
 }
 
-const uint8_t *get_configuration_descriptor(bool enable_msc, bool bulk_dap)
+const uint8_t *get_configuration_descriptor(bool enable_msc)
 {
     if (descriptor.configuration_length)
     {
@@ -157,16 +166,20 @@ const uint8_t *get_configuration_descriptor(bool enable_msc, bool bulk_dap)
     uint8_t *p = descriptor.desc_configuration;
     uint8_t const *total = (enable_msc) ? (desc_configuration_total_enable_msc) : (desc_configuration_total_disable_msc);
     int total_size = (enable_msc) ? (sizeof(desc_configuration_total_enable_msc)) : (sizeof(desc_configuration_total_disable_msc));
-    uint8_t const *hid_vendor = (bulk_dap) ? (desc_configuration_vendor) : (desc_configuration_hid);
-    int hid_vendor_size = (bulk_dap) ? (sizeof(desc_configuration_vendor)) : (sizeof(desc_configuration_hid));
 
     descriptor.configuration_length = 0;
     memcpy(p, total, total_size);
     descriptor.configuration_length += total_size;
     memcpy(p + descriptor.configuration_length, desc_configuration_cdc, sizeof(desc_configuration_cdc));
     descriptor.configuration_length += sizeof(desc_configuration_cdc);
-    memcpy(p + descriptor.configuration_length, hid_vendor, hid_vendor_size);
-    descriptor.configuration_length += hid_vendor_size;
+
+#ifdef CONFIG_BULK_DAPLINK
+    memcpy(p + descriptor.configuration_length, desc_configuration_vendor, sizeof(desc_configuration_vendor));
+    descriptor.configuration_length += sizeof(desc_configuration_vendor);
+#else
+    memcpy(p + descriptor.configuration_length, desc_configuration_hid, sizeof(desc_configuration_hid));
+    descriptor.configuration_length += sizeof(desc_configuration_hid);
+#endif
 
     if (enable_msc)
     {
