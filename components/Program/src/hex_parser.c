@@ -25,6 +25,7 @@
 
 #include <string.h>
 #include "hex_parser.h"
+#include <stdio.h>
 
 typedef enum
 {
@@ -75,15 +76,29 @@ static uint8_t validate_checksum(hex_line_t *record)
 
 void reset_hex_parser(hex_parser_t *parser)
 {
+    if (parser == NULL)
+    {
+        return;
+    }
+
     memset(parser, 0, sizeof(hex_parser_t));
 }
 
-hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob, const uint32_t hex_blob_size, uint32_t *hex_parse_cnt, uint8_t *bin_buf, const uint32_t bin_buf_size, uint32_t *bin_buf_address, uint32_t *bin_buf_cnt)
+hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob, const uint32_t hex_blob_size, uint32_t *hex_parse_cnt, uint8_t *bin_buf, const uint32_t bin_buf_size, uint32_t *bin_buf_address, uint32_t *bin_buf_written)
 {
+    if (parser == NULL || hex_blob == NULL || bin_buf == NULL ||
+        hex_parse_cnt == NULL || bin_buf_address == NULL ||
+        bin_buf_written == NULL || bin_buf_size < sizeof(parser->line.data))
+    {
+        return HEX_PARSE_FAILURE;
+    }
+
     uint8_t *end = (uint8_t *)hex_blob + hex_blob_size;
     hex_parse_status_t status = HEX_PARSE_UNINIT;
     // reset the amount of data that is being return'd
-    *bin_buf_cnt = (uint32_t)0;
+    *bin_buf_written = (uint32_t)0;
+    *bin_buf_address = 0;
+    *hex_parse_cnt = 0;
 
     if (parser->skip_until_aligned)
     {
@@ -105,12 +120,23 @@ hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob,
     //  already decoded.
     if (parser->load_unaligned_record)
     {
-        // need some help...
+        uint32_t bytes_to_copy = parser->line.byte_count;
+        uint32_t remaining_space = bin_buf_size - *bin_buf_written;
+
         parser->load_unaligned_record = 0;
-        // move from line buffer back to input buffer
-        memcpy((uint8_t *)bin_buf, (uint8_t *)parser->line.data, parser->line.byte_count);
-        bin_buf += parser->line.byte_count;
-        *bin_buf_cnt = (uint32_t)(*bin_buf_cnt) + parser->line.byte_count;
+        // Ensure we don't copy more than the buffer can hold
+        bytes_to_copy = (bytes_to_copy > remaining_space) ? remaining_space : bytes_to_copy;
+        // Ensure we don't copy more than the line data actually contains
+        bytes_to_copy = (bytes_to_copy > sizeof(parser->line.data)) ? sizeof(parser->line.data) : bytes_to_copy;
+
+        if (bytes_to_copy > 0)
+        {
+            // move from line buffer back to input buffer
+            memcpy((uint8_t *)bin_buf, (uint8_t *)parser->line.data, bytes_to_copy);
+            bin_buf += bytes_to_copy;
+            *bin_buf_written = (uint32_t)(*bin_buf_written) + bytes_to_copy;
+        }
+
         // Store next address to write
         parser->next_address_to_write = ((parser->next_address_to_write & 0xffff0000) | parser->line.address) + parser->line.byte_count;
     }
@@ -165,9 +191,12 @@ hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob,
                             case HEX_CUSTOM_DATA_RECORD:
                                 if (parser->binary_version == 0)
                                 {
+                                    uint32_t bytes_to_copy = parser->line.byte_count;
+                                    uint32_t remaining_space = bin_buf_size - *bin_buf_written;
+
                                     // Only save data from the correct binary
                                     // verify this is a continous block of memory or need to exit and dump
-                                    if (((parser->next_address_to_write & 0xffff0000) | parser->line.address) != parser->next_address_to_write)
+                                    if ((((parser->next_address_to_write & 0xffff0000) | parser->line.address) != parser->next_address_to_write) || (bytes_to_copy > remaining_space))
                                     {
                                         parser->load_unaligned_record = 1;
                                         status = HEX_PARSE_UNALIGNED;
@@ -183,9 +212,10 @@ hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob,
                                     }
 
                                     // move from line buffer back to input buffer
-                                    memcpy(bin_buf, parser->line.data, parser->line.byte_count);
-                                    bin_buf += parser->line.byte_count;
-                                    *bin_buf_cnt = (uint32_t)(*bin_buf_cnt) + parser->line.byte_count;
+                                    memcpy(bin_buf, parser->line.data, bytes_to_copy);
+                                    bin_buf += bytes_to_copy;
+                                    *bin_buf_written = (uint32_t)(*bin_buf_written) + bytes_to_copy;
+
                                     // Save next address to write
                                     parser->next_address_to_write = ((parser->next_address_to_write & 0xffff0000) | parser->line.address) + parser->line.byte_count;
                                 }
@@ -207,9 +237,13 @@ hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob,
                             case HEX_EXT_SEG_ADDR_RECORD:
                                 // Could have had data in the buffer so must exit and try to program
                                 //  before updating bin_buf_address with next_address_to_write
-                                memset(bin_buf, 0xff, (bin_buf_size - (uint32_t)(*bin_buf_cnt)));
+                                if (bin_buf_size > *bin_buf_written)
+                                {
+                                    memset(bin_buf, 0xff, bin_buf_size - *bin_buf_written);
+                                }
+
                                 // figure the start address for the buffer before returning
-                                *bin_buf_address = parser->next_address_to_write - (uint32_t)(*bin_buf_cnt);
+                                *bin_buf_address = parser->next_address_to_write - *bin_buf_written;
                                 *hex_parse_cnt = (uint32_t)(hex_blob_size - (end - hex_blob));
                                 // update the address msb's
                                 parser->next_address_to_write = (parser->next_address_to_write & 0x00000000) | ((parser->line.data[0] << 12) | (parser->line.data[1] << 4));
@@ -221,9 +255,13 @@ hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob,
                                 // Could have had data in the buffer so must exit and try to program
                                 //  before updating bin_buf_address with next_address_to_write
                                 //  Good catch Gaute!!
-                                memset(bin_buf, 0xff, (bin_buf_size - (uint32_t)(*bin_buf_cnt)));
+                                if (bin_buf_size > *bin_buf_written)
+                                {
+                                    memset(bin_buf, 0xff, bin_buf_size - *bin_buf_written);
+                                }
+
                                 // figure the start address for the buffer before returning
-                                *bin_buf_address = parser->next_address_to_write - (uint32_t)(*bin_buf_cnt);
+                                *bin_buf_address = parser->next_address_to_write - *bin_buf_written;
                                 *hex_parse_cnt = (uint32_t)(hex_blob_size - (end - hex_blob));
                                 // update the address msb's
                                 parser->next_address_to_write = (parser->next_address_to_write & 0x00000000) | ((parser->line.data[0] << 24) | (parser->line.data[1] << 16));
@@ -258,10 +296,118 @@ hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob,
     status = HEX_PARSE_OK;
 
 hex_parser_exit:
-    memset(bin_buf, 0xff, (bin_buf_size - (uint32_t)(*bin_buf_cnt)));
+
+    if (bin_buf_size > *bin_buf_written)
+    {
+        memset(bin_buf, 0xff, bin_buf_size - *bin_buf_written);
+    }
 
     // figure the start address for the buffer before returning
-    *bin_buf_address = parser->next_address_to_write - (uint32_t)(*bin_buf_cnt);
+    *bin_buf_address = parser->next_address_to_write - *bin_buf_written;
     *hex_parse_cnt = (uint32_t)(hex_blob_size - (end - hex_blob));
     return status;
+}
+
+uint32_t get_hex_start_address(const char *filename)
+{
+    char line[16];
+    uint32_t base_addr = 0;
+    uint32_t start_addr = 0xFFFFFFFF;
+    FILE *fp = fopen(filename, "r");
+
+    if (!fp)
+    {
+        return 0xFFFFFFFF;
+    }
+
+    while (fgets(line, sizeof(line), fp))
+    {
+        if (line[0] != ':')
+            continue;
+
+        uint8_t byte_count = 0;
+        uint16_t address = 0;
+        uint8_t record_type = 0;
+
+        if (sscanf(line + 1, "%2hhx%4hx%2hhx", &byte_count, &address, &record_type) < 3)
+        {
+            continue;
+        }
+
+        if (record_type == 0x04)
+        {
+            uint16_t ext_addr;
+            if (sscanf(line + 9, "%4hx", &ext_addr) == 1)
+            {
+                base_addr = (uint32_t)ext_addr << 16;
+            }
+            continue;
+        }
+
+        if (record_type == 0x00)
+        {
+            start_addr = base_addr | address;
+            break;
+        }
+
+        if (record_type == 0x01)
+        {
+            break;
+        }
+    }
+
+    fclose(fp);
+    return start_addr;
+}
+
+uint32_t parse_hex_addr(const char *buf, uint32_t size)
+{
+    uint32_t base_addr = 0;
+    uint32_t start_addr = 0xFFFFFFFF;
+    uint32_t pos = 0;
+
+    while (pos < size)
+    {
+        if (buf[pos] != ':')
+        {
+            pos++;
+            continue;
+        }
+
+        uint8_t byte_count = 0;
+        uint16_t address = 0;
+        uint8_t record_type = 0;
+
+        if (sscanf(buf + pos + 1, "%2hhx%4hx%2hhx", &byte_count, &address, &record_type) < 3)
+        {
+            pos++;
+            continue;
+        }
+
+        if (record_type == 0x04)
+        {
+            uint16_t ext_addr;
+            if (sscanf(buf + pos + 9, "%4hx", &ext_addr) == 1)
+            {
+                base_addr = (uint32_t)ext_addr << 16;
+            }
+            pos += 11;
+            continue;
+        }
+
+        if (record_type == 0x00)
+        {
+            start_addr = base_addr | address;
+            break;
+        }
+
+        if (record_type == 0x01)
+        {
+            break;
+        }
+
+        pos += 11;
+    }
+
+    return start_addr;
 }

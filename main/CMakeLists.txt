@@ -20,4 +20,5 @@ idf_component_register(SRCS "main.cpp"
                        EMBED_FILES "../html/root.html"
                         "../html/favicon.ico"
                         "../html/program.html"
-                        "../html/webserial.html")
+                        "../html/webserial.html"
+                        "../html/upgrade.html")

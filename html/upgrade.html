@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 DAPLink - 固件升级</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #00f5ff;
+            --secondary-color: #7b2cbf;
+            --accent-color: #ff006e;
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --success: #00ff88;
+            --warning: #ffaa00;
+            --error: #ff4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #1a1a2e 50%, var(--bg-dark) 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 动态背景网格 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* 漂浮粒子 */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: float 15s infinite;
+            box-shadow: 0 0 10px var(--primary-color);
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.3;
+            }
+            90% {
+                opacity: 0.3;
+            }
+            100% {
+                transform: translateY(-100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 头部 */
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(0, 245, 255, 0.3);
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.3); }
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1em;
+            letter-spacing: 1px;
+        }
+
+        /* 状态卡片 */
+        .status-card {
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(0, 245, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 245, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .status-card:hover {
+            border-color: rgba(0, 245, 255, 0.3);
+            box-shadow: 0 12px 40px rgba(0, 245, 255, 0.15);
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .status-title {
+            font-size: 1.3em;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-icon {
+            width: 24px;
+            height: 24px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .device-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .info-label {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-value {
+            font-size: 1.1em;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .status-indicator.ready {
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .status-indicator.updating {
+            background: rgba(255, 170, 0, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(255, 170, 0, 0.3);
+        }
+
+        .status-indicator.error {
+            background: rgba(255, 68, 68, 0.15);
+            color: var(--error);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 上传区域 */
+        .upload-section {
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(0, 245, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 245, 255, 0.1);
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(0, 245, 255, 0.3);
+            border-radius: 15px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0, 245, 255, 0.02);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 245, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+            background: rgba(0, 245, 255, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .upload-area:hover::before {
+            opacity: 1;
+        }
+
+        .upload-area.dragover {
+            border-color: var(--accent-color);
+            background: rgba(255, 0, 110, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .upload-text {
+            font-size: 1.3em;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .upload-hint {
+            color: var(--text-secondary);
+            font-size: 0.95em;
+            position: relative;
+            z-index: 1;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* 进度条 */
+        .progress-section {
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(0, 245, 255, 0.1);
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .progress-label {
+            font-size: 1.1em;
+            color: var(--text-primary);
+        }
+
+        .progress-percent {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+        }
+
+        .progress-bar-container {
+            height: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--accent-color));
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.5);
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-stat {
+            text-align: center;
+        }
+
+        .progress-stat-label {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .progress-stat-value {
+            font-size: 1.2em;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* 日志区域 */
+        .log-section {
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid rgba(0, 245, 255, 0.1);
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-section::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-section::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        .log-section::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            border-left: 3px solid var(--primary-color);
+            background: rgba(0, 245, 255, 0.05);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-entry.info { border-left-color: var(--primary-color); }
+        .log-entry.success { border-left-color: var(--success); }
+        .log-entry.warning { border-left-color: var(--warning); }
+        .log-entry.error { border-left-color: var(--error); }
+
+        .log-time {
+            color: var(--text-secondary);
+            margin-right: 10px;
+        }
+
+        /* 按钮 */
+        .btn {
+            padding: 14px 32px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--text-primary);
+            box-shadow: 0 4px 15px rgba(0, 245, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 245, 255, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .container {
+                padding: 20px 15px;
+            }
+
+            .upload-area {
+                padding: 40px 20px;
+            }
+
+            .device-info {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 文件信息卡片 */
+        .file-info {
+            background: rgba(0, 245, 255, 0.05);
+            border: 1px solid rgba(0, 245, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .file-info.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .file-name {
+            font-size: 1.1em;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            word-break: break-all;
+        }
+
+        .file-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .file-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .file-meta-icon {
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- 漂浮粒子背景 -->
+    <div class="particles" id="particles"></div>
+
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>⚡ ESP32 DAPLink</h1>
+            <p>固件无线升级系统</p>
+        </div>
+
+        <!-- 设备状态 -->
+        <div class="status-card">
+            <div class="status-header">
+                <div class="status-title">
+                    <svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    设备信息
+                </div>
+                <div class="status-indicator ready" id="status-indicator">
+                    <span class="status-dot"></span>
+                    <span id="status-text">就绪</span>
+                </div>
+            </div>
+
+            <div class="device-info">
+                <div class="info-item">
+                    <span class="info-label">芯片型号</span>
+                    <span class="info-value" id="chip-model">ESP32-S3</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">当前固件版本</span>
+                    <span class="info-value" id="fw-version">v1.0.0</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Flash 容量</span>
+                    <span class="info-value" id="flash-size">16 MB</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">WiFi 信号</span>
+                    <span class="info-value" id="wifi-signal">-45 dBm</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 上传区域 -->
+        <div class="upload-section">
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text">拖拽固件文件到此处，或点击选择文件</div>
+                <div class="upload-hint">支持 .bin 格式，最大 10MB</div>
+            </div>
+            <input type="file" id="file-input" accept=".bin">
+
+            <div class="file-info" id="file-info">
+                <div class="file-name" id="file-name"></div>
+                <div class="file-meta">
+                    <div class="file-meta-item">
+                        <span class="file-meta-icon">📊</span>
+                        <span id="file-size"></span>
+                    </div>
+                    <div class="file-meta-item">
+                        <span class="file-meta-icon">📅</span>
+                        <span id="file-date"></span>
+                    </div>
+                    <div class="file-meta-item">
+                        <span class="file-meta-icon">✅</span>
+                        <span>已就绪</span>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="start-btn">开始升级</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进度显示 -->
+        <div class="progress-section" id="progress-section">
+            <div class="progress-header">
+                <span class="progress-label">升级进度</span>
+                <span class="progress-percent" id="progress-percent">0%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div class="progress-info">
+                <div class="progress-stat">
+                    <div class="progress-stat-label">已传输</div>
+                    <div class="progress-stat-value" id="uploaded-size">0 KB</div>
+                </div>
+                <div class="progress-stat">
+                    <div class="progress-stat-label">总大小</div>
+                    <div class="progress-stat-value" id="total-size">0 KB</div>
+                </div>
+                <div class="progress-stat">
+                    <div class="progress-stat-label">速度</div>
+                    <div class="progress-stat-value" id="upload-speed">0 KB/s</div>
+                </div>
+                <div class="progress-stat">
+                    <div class="progress-stat-label">剩余时间</div>
+                    <div class="progress-stat-value" id="eta">--:--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 日志区域 -->
+        <div class="log-section" id="log-section">
+            <div class="log-entry info">
+                <span class="log-time">[系统]</span>
+                <span>欢迎使用 ESP32 DAPLink 固件升级系统</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 创建漂浮粒子
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 30; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                container.appendChild(particle);
+            }
+        }
+
+        // 日志系统
+        const logSection = document.getElementById('log-section');
+        
+        function addLog(message, type = 'info') {
+            const now = new Date();
+            const time = now.toLocaleTimeString('zh-CN', { hour12: false });
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="log-time">[${time}]</span><span>${message}</span>`;
+            logSection.appendChild(entry);
+            logSection.scrollTop = logSection.scrollHeight;
+        }
+
+        // 更新状态
+        function updateStatus(status, text) {
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            indicator.className = `status-indicator ${status}`;
+            statusText.textContent = text;
+        }
+
+        // 更新进度
+        function updateProgress(percent, uploaded, total, speed, eta) {
+            document.getElementById('progress-bar').style.width = percent + '%';
+            document.getElementById('progress-percent').textContent = Math.round(percent) + '%';
+            document.getElementById('uploaded-size').textContent = formatSize(uploaded);
+            document.getElementById('total-size').textContent = formatSize(total);
+            document.getElementById('upload-speed').textContent = formatSize(speed) + '/s';
+            document.getElementById('eta').textContent = eta;
+        }
+
+        // 格式化文件大小
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // 格式化时间
+        function formatTime(seconds) {
+            if (seconds < 60) return seconds + '秒';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}分${secs}秒`;
+        }
+
+        // DOM 元素
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const fileDate = document.getElementById('file-date');
+        const startBtn = document.getElementById('start-btn');
+        const progressSection = document.getElementById('progress-section');
+
+        let selectedFile = null;
+
+        // 拖拽事件
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // 处理文件
+        function handleFile(file) {
+            if (!file.name.endsWith('.bin')) {
+                addLog('请选择 .bin 格式的固件文件', 'error');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                addLog('文件大小不能超过 10MB', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = formatSize(file.size);
+            fileDate.textContent = file.lastModifiedDate.toLocaleString('zh-CN');
+            fileInfo.classList.add('active');
+            addLog(`已选择固件：${file.name} (${formatSize(file.size)})`, 'info');
+        }
+
+        // 开始升级
+        let pollingInterval = null;
+        let isFlashing = false;
+        
+        startBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            startBtn.disabled = true;
+            progressSection.classList.add('active');
+            updateStatus('updating', '升级中...');
+            addLog('开始固件升级...', 'info');
+
+            const startTime = Date.now();
+            let lastLoaded = 0;
+            let lastTime = startTime;
+            isFlashing = true;
+
+            try {
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = (e.loaded / e.total) * 100;
+                        const now = Date.now();
+                        const delta = e.loaded - lastLoaded;
+                        const timeDelta = (now - lastTime) / 1000;
+                        const speed = timeDelta > 0 ? delta / timeDelta : 0;
+                        const remaining = e.total - e.loaded;
+                        const eta = speed > 0 ? formatTime(remaining / speed) : '--:--';
+
+                        updateProgress(percent, e.loaded, e.total, speed, eta);
+
+                        // 每 10% 记录一次日志
+                        const logPercent = Math.floor(percent / 10) * 10;
+                        const lastLogPercent = Math.floor((lastLoaded / e.total * 100) / 10) * 10;
+                        if (logPercent > lastLogPercent && logPercent % 10 === 0) {
+                            addLog(`上传进度：${logPercent}%`, 'info');
+                        }
+                        lastLoaded = e.loaded;
+                        lastTime = now;
+                    }
+                });
+
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        updateProgress(100, selectedFile.size, selectedFile.size, 0, '0 秒');
+                        updateStatus('ready', '升级成功');
+                        addLog('固件升级成功完成！', 'success');
+                        addLog('设备即将重启...', 'success');
+                        isFlashing = false;
+                        startBtn.disabled = false;
+                        startBtn.textContent = '升级完成';
+                        // 5 秒后刷新页面
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 5000);
+                    } else {
+                        throw new Error('升级失败：' + xhr.statusText);
+                    }
+                });
+
+                xhr.addEventListener('error', () => {
+                    if (isFlashing) {
+                        throw new Error('网络错误');
+                    }
+                    // 烧录过程中断开可能是设备重启，忽略
+                });
+
+                xhr.addEventListener('timeout', () => {
+                    if (isFlashing) {
+                        throw new Error('请求超时');
+                    }
+                });
+
+                xhr.open('POST', '/upgrade');
+                xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+                xhr.timeout = 60000; // 60 秒超时
+                xhr.send(selectedFile);
+
+                addLog('正在传输固件...', 'info');
+
+            } catch (error) {
+                if (isFlashing) {
+                    updateStatus('error', '升级失败');
+                    addLog(`错误：${error.message}`, 'error');
+                    startBtn.disabled = false;
+                    startBtn.textContent = '重试升级';
+                }
+            }
+        });
+
+        // 轮询烧录状态
+        function startPollingStatus() {
+            let pollCount = 0;
+            const maxPollCount = 60; // 最多轮询 60 次（约 60 秒）
+            let lastProgress = 0;
+            let consecutiveIdleCount = 0;
+            
+            pollingInterval = setInterval(async () => {
+                pollCount++;
+                try {
+                    const response = await fetch('/api/query?type=program-status');
+                    if (response.ok) {
+                        const data = await response.json();
+                        const progress = data.progress || 0;
+                        const status = data.status || 'unknown';
+                        
+                        // 更新进度显示
+                        if (progress > lastProgress) {
+                            updateProgress(progress, selectedFile.size * (progress / 100), selectedFile.size, 0, '正在写入...');
+                            addLog(`烧录进度：${progress}%`, 'info');
+                            lastProgress = progress;
+                            consecutiveIdleCount = 0; // 重置 idle 计数
+                        }
+                        
+                        // 检查是否完成：进度 100% 且状态 idle
+                        if (progress >= 100 && status === 'idle') {
+                            addLog('烧录完成，设备空闲', 'success');
+                            stopPollingStatus(true);
+                            return;
+                        }
+                        
+                        // 如果连续多次返回 idle 但进度不是 100%，可能烧录已完成
+                        if (status === 'idle') {
+                            consecutiveIdleCount++;
+                            if (consecutiveIdleCount >= 3 && progress >= 90) {
+                                addLog('烧录完成（检测到空闲状态）', 'success');
+                                stopPollingStatus(true);
+                                return;
+                            }
+                        }
+                        
+                        // 超时处理
+                        if (pollCount >= maxPollCount) {
+                            addLog('烧录超时，但可能已完成', 'warning');
+                            stopPollingStatus(true);
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    addLog(`轮询错误：${error.message}`, 'warning');
+                    // 如果连续多次请求失败，认为可能已完成
+                    if (pollCount > 10) {
+                        stopPollingStatus(true);
+                    }
+                }
+            }, 1000); // 每秒轮询一次
+        }
+
+        function stopPollingStatus(success) {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            isFlashing = false;
+            
+            if (success) {
+                updateProgress(100, selectedFile.size, selectedFile.size, 0, '0 秒');
+                updateStatus('ready', '升级成功');
+                addLog('固件升级成功完成！', 'success');
+                addLog('目标芯片已重启，调试器在线', 'success');
+                startBtn.disabled = false;
+                startBtn.textContent = '再次升级';
+            }
+        }
+
+        // 获取设备状态
+        function updateDeviceStatus() {
+            fetch('/api/query?type=device-status')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.version) document.getElementById('fw-version').textContent = d.version;
+                    if (d.wifi_rssi) document.getElementById('wifi-signal').textContent = d.wifi_rssi + ' dBm';
+                    if (d.chip_model) document.getElementById('chip-model').textContent = d.chip_model;
+                    if (d.flash_size) document.getElementById('flash-size').textContent = d.flash_size + ' MB';
+                })
+                .catch(e => console.log('Status update failed:', e));
+        }
+        
+        // 初始化
+        createParticles();
+        addLog('设备连接正常', 'success');
+        addLog('等待选择固件文件...', 'info');
+        
+        // 立即获取一次状态
+        updateDeviceStatus();
+        // 每 2 秒更新一次 WiFi 信号
+        setInterval(updateDeviceStatus, 2000);
+    </script>
+</body>
+</html>

@@ -31,7 +31,9 @@ extern "C"
     esp_err_t web_flash_handler(httpd_req_t *req);
     esp_err_t web_upload_file_handler(httpd_req_t *req);
     esp_err_t web_query_handler(httpd_req_t *req);
+    esp_err_t web_parse_start_addr_handler(httpd_req_t *req);  // 新增：解析 HEX 文件地址
     esp_err_t web_online_program_handler(httpd_req_t *req);
+    esp_err_t web_upgrade_handler(httpd_req_t *req);
 
 #ifdef __cplusplus
 }

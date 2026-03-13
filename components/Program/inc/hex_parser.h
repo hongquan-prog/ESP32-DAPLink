@@ -93,10 +93,23 @@ extern "C"
      *  @param bin_buf Buffer the decoded hex file contents goes into
      *  @param bin_buf_size max size of the buffer
      *  @param bin_buf_address The start address for data in the bin_buf as decoded from the hex file
-     *  @param bin_buf_cnt The amount of data in the bin_buf
+     *  @param bin_buf_wirtten The amount of data in the bin_buf
      *  @return A member of hex_parse_status_t that describes the state of decoding
      */
-    hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob, const uint32_t hex_blob_size, uint32_t *hex_parse_cnt, uint8_t *bin_buf, const uint32_t bin_buf_size, uint32_t *bin_buf_address, uint32_t *bin_buf_cnt);
+    hex_parse_status_t parse_hex_blob(hex_parser_t *parser, const uint8_t *hex_blob, const uint32_t hex_blob_size, uint32_t *hex_parse_cnt, uint8_t *bin_buf, const uint32_t bin_buf_size, uint32_t *bin_buf_address, uint32_t *bin_buf_wirtten);
+
+    /** Parse a hex file to get the start address for the data
+     *  @param filename The path to the hex file to parse
+     *  @return The start address of the data in the hex file or 0xFFFFFFFF on failure
+     */
+    uint32_t get_hex_start_address(const char *filename);
+
+    /** Parse a hex data buffer to get the start address for the data
+     *  @param buf The buffer containing ascii encoded hex data
+     *  @param size The amount of valid data in the buffer
+     *  @return The start address of the data in the hex file or 0xFFFFFFFF on failure
+     */
+    uint32_t parse_hex_addr(const char *buf, uint32_t size);
 
 #ifdef __cplusplus
 }

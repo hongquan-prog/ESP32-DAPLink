@@ -115,6 +115,9 @@ prog_err_def programmer_write_data(uint8_t *data, int len)
 {
     prog_data_swap_t swap = {data, len};
 
+    /* 此处使用栈上的变量传递给另一个线程不会有问题
+     * 1. 另一个线程会在调用wait_sync之前就读取这个变量的值，当另一个线程访问完成后才会继续往下执行
+     */
     s_data.set_swap(&swap);
     s_data.send_event(PROG_EVT_PROGRAM_DATA_RECVED);
     s_data.wait_sync();
