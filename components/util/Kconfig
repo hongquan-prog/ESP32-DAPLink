@@ -1,0 +1,29 @@
+menu "Util Configuration"
+
+    config BRIDGE_GPIO_LED1
+        int "GPIO pin LED1"
+        default 12
+        help
+            GPIO pin for LED1 (typically TX activity indicator)
+
+    config BRIDGE_GPIO_LED2
+        int "GPIO pin LED2"
+        default 13
+        help
+            GPIO pin for LED2 (typically RX activity indicator)
+
+    config BRIDGE_GPIO_LED1_ACTIVE
+        int "GPIO pin LED1 active value"
+        range 0 1
+        default 0
+        help
+            Logic level when LED1 is active (0=active low, 1=active high)
+
+    config BRIDGE_GPIO_LED2_ACTIVE
+        int "GPIO pin LED2 active value"
+        range 0 1
+        default 0
+        help
+            Logic level when LED2 is active (0=active low, 1=active high)
+
+endmenu

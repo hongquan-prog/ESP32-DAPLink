@@ -1,0 +1,4 @@
+[mapping:debug_probe]
+archive: libdebug_probe.a
+entries:
+    * (noflash)

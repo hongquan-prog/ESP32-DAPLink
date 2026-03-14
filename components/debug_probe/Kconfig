@@ -1,0 +1,49 @@
+menu "Debug Probe Configuration"
+
+    choice DEBUG_PROBE_INTERFACE
+        prompt "Debug interface"
+        default DEBUG_PROBE_IFACE_JTAG
+        help
+            Select which debug interface to use
+
+        config DEBUG_PROBE_IFACE_JTAG
+            bool "ESP-USB JTAG"
+        config DEBUG_PROBE_IFACE_SWD
+            bool "CMSIS-DAP SWD"
+    endchoice
+
+    config DEBUG_PROBE_IFACE_NAME
+        string
+        default "JTAG" if DEBUG_PROBE_IFACE_JTAG
+        default "CMSIS-DAP"
+
+    config DEBUG_PROBE_GPIO_TDI
+        int "GPIO pin for the target TDI signal"
+        default 3
+        help
+            GPIO pin connected to target's TDI (Test Data Input) signal
+
+    config DEBUG_PROBE_GPIO_TDO
+        int "GPIO pin for the target TDO signal"
+        default 9
+        help
+            GPIO pin connected to target's TDO (Test Data Output) signal
+
+    config DEBUG_PROBE_GPIO_TCK
+        int "GPIO pin for the target TCK signal"
+        default 10
+        help
+            GPIO pin connected to target's TCK (Test Clock) signal
+
+    config DEBUG_PROBE_GPIO_TMS
+        int "GPIO pin for the target TMS signal"
+        default 8
+        help
+            GPIO pin connected to target's TMS (Test Mode Select) signal
+
+    config DEBUG_PROBE_SWJ_CLOCK
+        int "Default SWJ Clock"
+        range 500000 10000000
+        default 4000000
+
+endmenu

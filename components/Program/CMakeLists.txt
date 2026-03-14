@@ -10,6 +10,7 @@ set(COMPONENT_SRCS
             "src/algo_extractor.cpp"
             "src/file_programmer.cpp"
             "src/stream_programmer.cpp"
+            "src/swd_host.c"
 			)
-set(COMPONENT_REQUIRES fatfs DAP)
+set(COMPONENT_REQUIRES fatfs debug_probe)
 register_component()
