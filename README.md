@@ -29,6 +29,29 @@ virtual void swj_sequence(uint32t count, const uint8_t data) = 0;
 virtual void set_target_reset(uint8t asserted) = 0;
 ```
 
+## Usage Notes
+
+### Keil MDK Compatibility
+- Keil MDK only works with the **HID mode** of the DAPLink Debugger. Please ensure you select "Connect to computer by HID" in the configuration.
+
+### Linux Permission Setup
+On Linux systems, you need to add udev rules to grant access permissions for the CMSIS-DAP device:
+
+```bash
+# Create udev rule file
+sudo nano /etc/udev/rules.d/60-cmsis-dap.rules
+
+# Add the following content to the file
+SUBSYSTEM=="usb", ATTR{idVendor}=="0d28", ATTR{idProduct}=="0204", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0d28", ATTR{idProduct}=="0204", TAG+="uaccess"
+
+# Apply the rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# Ensure your user is in the plugdev group
+sudo usermod -aG plugdev $USER
+```
+
 ## Contribution
 
 If you have front-end development skills or are interested in embedded systems development, you are welcome to contribute to the DAPLink Debugger project. Your contributions can help enhance existing features, add new functionalities, and improve the overall user experience.

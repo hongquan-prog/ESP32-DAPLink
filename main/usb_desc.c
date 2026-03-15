@@ -6,7 +6,7 @@
 
 #ifdef CONFIG_BULK_DAPLINK
 #define DAPLINK_DESC_LEN TUD_VENDOR_DESC_LEN
-#else
+#elif CONFIG_HID_DAPLINK
 #define DAPLINK_DESC_LEN TUD_HID_INOUT_DESC_LEN
 #endif
 
@@ -22,7 +22,7 @@ static uint8_t const desc_configuration_cdc[] = {TUD_CDC_DESCRIPTOR(ITF_NUM_CDC,
 #ifdef CONFIG_BULK_DAPLINK
 // Interface number, string index, EP Out & IN address, EP size
 static uint8_t const desc_configuration_vendor[] = {TUD_VENDOR_DESCRIPTOR(ITF_NUM_VENDOR, STRID_VENDOR_INTERFACE, EDPT_VENDOR_OUT, EDPT_VENDOR_IN, TUD_OPT_HIGH_SPEED ? 512 : 64)};
-#else
+#elif CONFIG_HID_DAPLINK
 // Interface number, string index, protocol, report descriptor len, EP In & Out address, size & polling interval
 static uint8_t const desc_configuration_hid[] = {TUD_HID_INOUT_DESCRIPTOR(ITF_NUM_HID, STRID_HID_INTERFACE, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_dap_report), EDPT_HID_OUT, EDPT_HID_IN, CFG_TUD_HID_EP_BUFSIZE, 1)};
 #endif
@@ -34,7 +34,7 @@ static tusb_desc_device_t descriptor_config = {
     .bDescriptorType = TUSB_DESC_DEVICE,
 #ifdef CONFIG_BULK_DAPLINK
     .bcdUSB = 0x0210,
-#else
+#elif CONFIG_HID_DAPLINK
     .bcdUSB = 0x0200,
 #endif
     .bDeviceClass = TUSB_CLASS_MISC,
@@ -58,7 +58,7 @@ static struct
     int configuration_length;
 } descriptor = {0};
 
-#ifdef CONFIG_TINYUSB_VENDOR_ENABLED
+#ifdef CONFIG_BULK_DAPLINK
 uint8_t const *tud_descriptor_bos_cb(void)
 {
     // BOS Descriptor is required for webUSB

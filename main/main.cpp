@@ -46,7 +46,7 @@ extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, h
     return 0;
 }
 
-#ifdef CONFIG_TINYUSB_VENDOR_ENABLED
+#ifdef CONFIG_BULK_DAPLINK
 extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request)
 {
     uint16_t total_len = 0;
@@ -98,7 +98,7 @@ extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_c
     return false;
 }
 
-extern "C" void tud_vendor_rx_cb(uint8_t itf)
+extern "C" void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize)
 {
     static uint8_t in[DAP_PACKET_SIZE] = {0};
     static uint8_t out[DAP_PACKET_SIZE] = {0};
