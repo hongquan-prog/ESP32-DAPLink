@@ -1918,9 +1918,26 @@ CONFIG_DEBUG_PROBE_SWJ_CLOCK=4000000
 # end of Debug Probe Configuration
 
 #
+# Util Configuration
+#
+CONFIG_BRIDGE_GPIO_LED1=17
+CONFIG_BRIDGE_GPIO_LED2=18
+CONFIG_BRIDGE_GPIO_LED1_ACTIVE=1
+CONFIG_BRIDGE_GPIO_LED2_ACTIVE=1
+# end of Util Configuration
+
+#
 # TinyUSB Stack
 #
 CONFIG_TINYUSB_DEBUG_LEVEL=0
+CONFIG_TINYUSB_RHPORT_FS=y
+
+#
+# TinyUSB DCD
+#
+# CONFIG_TINYUSB_MODE_SLAVE is not set
+CONFIG_TINYUSB_MODE_DMA=y
+# end of TinyUSB DCD
 
 #
 # TinyUSB task configuration
@@ -1959,6 +1976,16 @@ CONFIG_TINYUSB_DESC_MSC_STRING="Espressif MSC Device"
 CONFIG_TINYUSB_MSC_ENABLED=y
 CONFIG_TINYUSB_MSC_BUFSIZE=4096
 CONFIG_TINYUSB_MSC_MOUNT_PATH="/data"
+
+#
+# TinyUSB FAT Format Options
+#
+CONFIG_TINYUSB_FAT_FORMAT_ANY=y
+# CONFIG_TINYUSB_FAT_FORMAT_FAT is not set
+# CONFIG_TINYUSB_FAT_FORMAT_FAT32 is not set
+# CONFIG_TINYUSB_FAT_FORMAT_EXFAT is not set
+# CONFIG_TINYUSB_FAT_FORMAT_SFD is not set
+# end of TinyUSB FAT Format Options
 # end of Massive Storage Class (MSC)
 
 #
@@ -1983,11 +2010,6 @@ CONFIG_TINYUSB_HID_COUNT=1
 # end of Human Interface Device Class (HID)
 
 #
-# Vendor Interface Device Class (vendor)
-#
-# end of Vendor Interface Device Class (vendor)
-
-#
 # Device Firmware Upgrade (DFU)
 #
 # CONFIG_TINYUSB_DFU_MODE_DFU is not set
@@ -2008,16 +2030,13 @@ CONFIG_TINYUSB_DFU_MODE_NONE=y
 # CONFIG_TINYUSB_NET_MODE_NCM is not set
 CONFIG_TINYUSB_NET_MODE_NONE=y
 # end of Network driver (ECM/NCM/RNDIS)
-# end of TinyUSB Stack
 
 #
-# Util Configuration
+# Vendor Specific Interface
 #
-CONFIG_BRIDGE_GPIO_LED1=17
-CONFIG_BRIDGE_GPIO_LED2=18
-CONFIG_BRIDGE_GPIO_LED1_ACTIVE=1
-CONFIG_BRIDGE_GPIO_LED2_ACTIVE=1
-# end of Util Configuration
+CONFIG_TINYUSB_VENDOR_COUNT=1
+# end of Vendor Specific Interface
+# end of TinyUSB Stack
 # end of Component config
 
 # CONFIG_IDF_EXPERIMENTAL_FEATURES is not set
