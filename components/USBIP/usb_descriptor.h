@@ -1,7 +1,7 @@
 #ifndef __USB_DESCRIPTOR_H__
 #define __USB_DESCRIPTOR_H__
 
-#include "main/dap_configuration.h"
+#include "usb_config.h"
 
 // Vendor ID assigned by USB-IF (idVendor).
 #define USBD0_DEV_DESC_IDVENDOR 0x0d28
@@ -29,7 +29,7 @@
 #define USBD_CUSTOM_CLASS0_IF0_ALT 0
 
 // Class Code
-#if (USE_WINUSB == 1)
+#if (USBIP_ENABLE_WINUSB == 1)
 #define USBD_CUSTOM_CLASS0_IF0_CLASS 0xFF // 0xFF: Vendor Specific
 #else
 #define USBD_CUSTOM_CLASS0_IF0_CLASS 0x03 // 0x03: HID class
@@ -50,13 +50,13 @@ extern const uint8_t kManufacturerString[0x28];
 extern const uint8_t kProductString[0x18];
 extern const uint8_t kSerialNumberString[0x1A];
 
-#if (USE_WINUSB == 1)
+#if (USBIP_ENABLE_WINUSB == 1)
 
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
 extern const uint8_t kUSBd0InterfaceDescriptor[0x30];
 #else
 extern const uint8_t kUSBd0InterfaceDescriptor[0x1E];
-#endif // USE_USB_3_0 == 1
+#endif // USBIP_ENABLE_USB_3_0 == 1
 
 extern const uint8_t kUSBd0ConfigDescriptor[0x09];
 extern const uint8_t kInterfaceString[0x2C];

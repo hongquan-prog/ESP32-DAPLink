@@ -1905,6 +1905,15 @@ CONFIG_WIFI_PROV_STA_ALL_CHANNEL_SCAN=y
 # end of Wi-Fi Provisioning Manager
 
 #
+# USBIP Configuration
+#
+CONFIG_USBIP_ENABLE_WINUSB=y
+CONFIG_USBIP_USB_SPEED_2_0=y
+# CONFIG_USBIP_USB_SPEED_3_0 is not set
+CONFIG_USBIP_ENDPOINT_SIZE=512
+# end of USBIP Configuration
+
+#
 # Debug Probe Configuration
 #
 # CONFIG_DEBUG_PROBE_IFACE_JTAG is not set

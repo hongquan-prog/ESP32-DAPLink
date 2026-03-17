@@ -65,13 +65,13 @@ const uint8_t bosDescriptor[kLengthOfBos] =
     USBShort(kLengthOfBos),     // wLength
 
 
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
     0x03,                       // bNumDeviceCaps -> USB2.0 extension & SuperSpeed USB Device & OS2.0 descriptor
 #else
     0x01,                       // bNumDeviceCaps -> only 0x01 for OS2.0 descriptor
-#endif // USE_USB_3_0 == 1
+#endif // USBIP_ENABLE_USB_3_0 == 1
 
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
     // USB 2.0 extension, USB 3.0 Specification, Table 9-12.
     0x07,                                            // bLength of this descriptor
     USB_DESCRIPTOR_TYPE_DEVICE_CAPABILITY,           // DEVICE CAPABILITY Descriptor type
@@ -87,7 +87,7 @@ const uint8_t bosDescriptor[kLengthOfBos] =
     0x03,                                            // bFunctionalitySupport
     0x00,                                            // bU1DevExitLat -> 0 may be ok
     0x00, 0x00,                                      // wU2DevExitLat -> 0 may be ok
-#endif // USE_USB_3_0 == 1
+#endif // USBIP_ENABLE_USB_3_0 == 1
 
 
 

@@ -21,26 +21,29 @@
 #include "tinyusb.h"
 #include "tusb_cdc_acm.h"
 #include "sdkconfig.h"
-#include "cdc_uart.h"
+#include "serial/cdc_uart.h"
 #include "tusb_config.h"
 #include "DAP_config.h"
 #include "DAP.h"
-#include "usb_desc.h"
-#include "msc_disk.h"
+#include "usb/usb_desc.h"
+#include "usb/msc_disk.h"
 #include "esp_netif.h"
-#include "web_handler.h"
-#include "usb_cdc_handler.h"
+#include "web/web_handler.h"
+#include "usb/usb_cdc_handler.h"
 #include "esp_http_server.h"
-#include "web_server.h"
-#include "programmer.h"
+#include "web/web_server.h"
+#include "programmer/programmer.h"
 #include "protocol_examples_common.h"
-#include "DAP_handle.h"
-#include "serial_manager.h"
+#include "dap/DAP_handle.h"
+#include "serial/serial_manager.h"
+#include "usbip/usbip_service.h"
+#include "usbip/transport/transport_tcp.h"
+#include "usbip/transport/transport_netconn.h"
+#include "usbip/transport/transport_kcp.h"
 
 static const char *TAG = "main";
 static httpd_handle_t http_server = NULL;
 
-extern "C" void tcp_server_task(void *pvParameters);
 extern "C" void DAP_Thread(void *pvParameters);
 
 extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
@@ -188,11 +191,13 @@ extern "C" void app_main(void)
     cdc_uart_register_rx_handler(CDC_UART_WEB_HANDLER, web_send_to_clients, &http_server);
     ESP_LOGI(TAG, "USB initialization DONE");
 
-    // Specify the usbip server task
-#if (USE_TCP_NETCONN == 1)
-    xTaskCreate(tcp_netconn_task, "tcp_server", 4096, NULL, 14, NULL);
-#else // BSD style
-    xTaskCreate(tcp_server_task, "tcp_server", 4096, NULL, 14, NULL);
+    // Specify the usbip server task with transport abstraction
+#if (USBIP_USE_KCP == 1)
+    xTaskCreate(usbip_service_task, "usbip_server", 4096, (void *)transport_kcp_get_ops(), 14, NULL);
+#elif (USBIP_USE_TCP_NETCONN == 1)
+    xTaskCreate(usbip_service_task, "usbip_server", 4096, (void *)transport_netconn_get_ops(), 14, NULL);
+#else
+    xTaskCreate(usbip_service_task, "usbip_server", 4096, (void *)transport_tcp_get_ops(), 14, NULL);
 #endif
 
     // Initialize DAP task

@@ -7,22 +7,14 @@
  * @copyright Copyright (c) 2020
  *
  */
+
 #include <stdint.h>
 #include <string.h>
-
-#include "main/usbip_server.h"
-#include "main/wifi_configuration.h"
+#include <stdio.h>
 
 #include "components/USBIP/usb_handle.h"
 #include "components/USBIP/usb_descriptor.h"
 #include "components/USBIP/MSOS20_descriptor.h"
-
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include <lwip/netdb.h>
-
-extern int g_k_sock;
 
 const char *strings_list[] = {
         0, // reserved: available languages  -> iInterface
@@ -30,233 +22,239 @@ const char *strings_list[] = {
         "Wireless ESP CMSIS-DAP",
         "1234",
 };
-// handle functions
-static void handleGetDescriptor(usbip_stage2_header *header);
 
-////TODO: may be ok
-void handleUSBControlRequest(usbip_stage2_header *header)
+/* Helper macros for callbacks */
+#define SEND_SUBMIT_DATA(ops, header, status, data, len) \
+    (ops)->send_submit_data((ops)->user_data, header, status, data, len)
+
+#define SEND_SUBMIT(ops, header, status, len) \
+    (ops)->send_submit((ops)->user_data, header, status, len)
+
+#define SEND_DATA(ops, data, len) \
+    (ops)->send_data((ops)->user_data, data, len)
+
+/* Forward declarations */
+static void handleGetDescriptor(usbip_stage2_header *header, const usb_send_ops_t *ops);
+
+void handleUSBControlRequest(usbip_stage2_header *header, const usb_send_ops_t *ops)
 {
-    // Table 9-3. Standard Device Requests
-
+    /* Table 9-3. Standard Device Requests */
     switch (header->u.cmd_submit.request.bmRequestType)
     {
-    case 0x00: // ignore..
+    case 0x00: /* ignore.. */
         switch (header->u.cmd_submit.request.bRequest)
         {
         case USB_REQ_CLEAR_FEATURE:
-            os_printf("* CLEAR FEATURE\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* CLEAR FEATURE\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_SET_FEATURE:
-            os_printf("* SET FEATURE\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* SET FEATURE\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_SET_ADDRESS:
-            os_printf("* SET ADDRESS\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* SET ADDRESS\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_SET_DESCRIPTOR:
-            os_printf("* SET DESCRIPTOR\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* SET DESCRIPTOR\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_SET_CONFIGURATION:
-            os_printf("* SET CONFIGURATION\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* SET CONFIGURATION\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         default:
-            os_printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
+            printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
                       header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest);
             break;
         }
         break;
-    case 0x01: // ignore...
+    case 0x01: /* ignore... */
         switch (header->u.cmd_submit.request.bRequest)
         {
         case USB_REQ_CLEAR_FEATURE:
-            os_printf("* CLEAR FEATURE\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* CLEAR FEATURE\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_SET_FEATURE:
-            os_printf("* SET FEATURE\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* SET FEATURE\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_SET_INTERFACE:
-            os_printf("* SET INTERFACE\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* SET INTERFACE\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
 
         default:
-            os_printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
+            printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
                       header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest);
             break;
         }
         break;
-    case 0x02: // ignore..
+    case 0x02: /* ignore.. */
         switch (header->u.cmd_submit.request.bRequest)
         {
         case USB_REQ_CLEAR_FEATURE:
-            os_printf("* CLEAR FEATURE\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* CLEAR FEATURE\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_SET_FEATURE:
-            os_printf("* SET INTERFACE\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* SET INTERFACE\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
 
         default:
-            os_printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
+            printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
                       header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest);
             break;
         }
         break;
 
-    case 0x80: // *IMPORTANT*
-#if (USE_WINUSB == 0)
+    case 0x80: /* *IMPORTANT* */
+#if (USBIP_ENABLE_WINUSB == 0)
     case 0x81:
 #endif
     {
         switch (header->u.cmd_submit.request.bRequest)
         {
         case USB_REQ_GET_CONFIGURATION:
-            os_printf("* GET CONIFGTRATION\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* GET CONIFGTRATION\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_GET_DESCRIPTOR:
-            handleGetDescriptor(header); ////TODO: device_qualifier
+            handleGetDescriptor(header, ops);
             break;
         case USB_REQ_GET_STATUS:
-            os_printf("* GET STATUS\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* GET STATUS\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         default:
-            os_printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
+            printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
                       header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest);
             break;
         }
         break;
     }
-#if (USE_WINUSB == 1)
-    case 0x81: // ignore...
+#if (USBIP_ENABLE_WINUSB == 1)
+    case 0x81: /* ignore... */
         switch (header->u.cmd_submit.request.bRequest)
         {
         case USB_REQ_GET_INTERFACE:
-            os_printf("* GET INTERFACE\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* GET INTERFACE\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_SET_SYNCH_FRAME:
-            os_printf("* SET SYNCH FRAME\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* SET SYNCH FRAME\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
         case USB_REQ_GET_STATUS:
-            os_printf("* GET STATUS\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* GET STATUS\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
 
         default:
-            os_printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
+            printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
                       header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest);
             break;
         }
         break;
 #endif
-    case 0x82: // ignore...
+    case 0x82: /* ignore... */
         switch (header->u.cmd_submit.request.bRequest)
         {
         case USB_REQ_GET_STATUS:
-            os_printf("* GET STATUS\r\n");
-            usbip_send_stage2_submit_data(header, 0, 0, 0);
+            printf("* GET STATUS\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, 0, 0);
             break;
 
         default:
-            os_printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
+            printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
                       header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest);
             break;
         }
         break;
-    case 0xC0: // Microsoft OS 2.0 vendor-specific descriptor
+    case 0xC0: /* Microsoft OS 2.0 vendor-specific descriptor */
     {
         uint16_t wIndex = header->u.cmd_submit.request.wIndex.u16;
         switch (wIndex)
         {
         case MS_OS_20_DESCRIPTOR_INDEX:
-            os_printf("* GET MSOS 2.0 vendor-specific descriptor\r\n");
-            usbip_send_stage2_submit_data(header, 0, msOs20DescriptorSetHeader, sizeof(msOs20DescriptorSetHeader));
+            printf("* GET MSOS 2.0 vendor-specific descriptor\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, msOs20DescriptorSetHeader, sizeof(msOs20DescriptorSetHeader));
             break;
         case MS_OS_20_SET_ALT_ENUMERATION:
-            // set alternate enumeration command
-            // bAltEnumCode set to 0
-            os_printf("Set alternate enumeration.This should not happen.\r\n");
+            /* set alternate enumeration command */
+            /* bAltEnumCode set to 0 */
+            printf("Set alternate enumeration.This should not happen.\r\n");
             break;
 
         default:
-            os_printf("USB unknown request, bmRequestType:%d,bRequest:%d,wIndex:%d\r\n",
+            printf("USB unknown request, bmRequestType:%d,bRequest:%d,wIndex:%d\r\n",
                       header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest, wIndex);
             break;
         }
         break;
     }
-    case 0x21: // Set_Idle for HID
+    case 0x21: /* Set_Idle for HID */
         switch (header->u.cmd_submit.request.bRequest)
         {
         case USB_REQ_SET_IDLE:
-            os_printf("* SET IDLE\r\n");
-            usbip_send_stage2_submit(header, 0, 0);
+            printf("* SET IDLE\r\n");
+            SEND_SUBMIT(ops, header, 0, 0);
             break;
 
         default:
-            os_printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
+            printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
                       header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest);
             break;
         }
         break;
     default:
-        os_printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
+        printf("USB unknown request, bmRequestType:%d,bRequest:%d\r\n",
                   header->u.cmd_submit.request.bmRequestType, header->u.cmd_submit.request.bRequest);
         break;
     }
 }
 
-static void handleGetDescriptor(usbip_stage2_header *header)
+static void handleGetDescriptor(usbip_stage2_header *header, const usb_send_ops_t *ops)
 {
-    // 9.4.3 Get Descriptor
+    /* 9.4.3 Get Descriptor */
     switch (header->u.cmd_submit.request.wValue.u8hi)
     {
-    case USB_DT_DEVICE: // get device descriptor
-        os_printf("* GET 0x01 DEVICE DESCRIPTOR\r\n");
-        usbip_send_stage2_submit_data(header, 0, &kUSBd0DeviceDescriptor[0], sizeof(kUSBd0DeviceDescriptor));
+    case USB_DT_DEVICE: /* get device descriptor */
+        printf("* GET 0x01 DEVICE DESCRIPTOR\r\n");
+        SEND_SUBMIT_DATA(ops, header, 0, &kUSBd0DeviceDescriptor[0], sizeof(kUSBd0DeviceDescriptor));
         break;
 
-    case USB_DT_CONFIGURATION: // get configuration descriptor
-        os_printf("* GET 0x02 CONFIGURATION DESCRIPTOR\r\n");
-        ////TODO: ?
-        if (header->u.cmd_submit.data_length == USB_DT_CONFIGURATION_SIZE)
+    case USB_DT_CONFIGURATION: /* get configuration descriptor */
+        printf("* GET 0x02 CONFIGURATION DESCRIPTOR\r\n");
         {
-            os_printf("Sending only first part of CONFIG\r\n");
+            if (header->u.cmd_submit.data_length == USB_DT_CONFIGURATION_SIZE)
+            {
+                printf("Sending only first part of CONFIG\r\n");
 
-            usbip_send_stage2_submit(header, 0, header->u.cmd_submit.data_length);
-            usbip_network_send(g_k_sock, kUSBd0ConfigDescriptor, sizeof(kUSBd0ConfigDescriptor), 0);
-        }
-        else
-        {
-            os_printf("Sending ALL CONFIG\r\n");
-            usbip_send_stage2_submit(header, 0, sizeof(kUSBd0ConfigDescriptor) + sizeof(kUSBd0InterfaceDescriptor));
-            usbip_network_send(g_k_sock, kUSBd0ConfigDescriptor, sizeof(kUSBd0ConfigDescriptor), 0);
-            usbip_network_send(g_k_sock, kUSBd0InterfaceDescriptor, sizeof(kUSBd0InterfaceDescriptor), 0);
+                SEND_SUBMIT(ops, header, 0, header->u.cmd_submit.data_length);
+                SEND_DATA(ops, kUSBd0ConfigDescriptor, sizeof(kUSBd0ConfigDescriptor));
+            }
+            else
+            {
+                printf("Sending ALL CONFIG\r\n");
+                SEND_SUBMIT(ops, header, 0, sizeof(kUSBd0ConfigDescriptor) + sizeof(kUSBd0InterfaceDescriptor));
+                SEND_DATA(ops, kUSBd0ConfigDescriptor, sizeof(kUSBd0ConfigDescriptor));
+                SEND_DATA(ops, kUSBd0InterfaceDescriptor, sizeof(kUSBd0InterfaceDescriptor));
+            }
         }
         break;
 
     case USB_DT_STRING:
-        //os_printf("* GET 0x03 STRING DESCRIPTOR\r\n");
-
         if (header->u.cmd_submit.request.wValue.u8lo == 0)
         {
-            os_printf("** REQUESTED list of supported languages\r\n");
-            usbip_send_stage2_submit_data(header, 0, kLangDescriptor, sizeof(kLangDescriptor));
+            printf("** REQUESTED list of supported languages\r\n");
+            SEND_SUBMIT_DATA(ops, header, 0, kLangDescriptor, sizeof(kLangDescriptor));
         }
         else if (header->u.cmd_submit.request.wValue.u8lo != 0xee)
         {
-            //os_printf("low bit : %d\r\n", (int)header->u.cmd_submit.request.wValue.u8lo);
-            //os_printf("high bit : %d\r\n", (int)header->u.cmd_submit.request.wValue.u8hi);
             int slen = strlen(strings_list[header->u.cmd_submit.request.wValue.u8lo]);
             int wslen = slen * 2;
             int buff_len = sizeof(usb_string_descriptor) + wslen;
@@ -267,70 +265,64 @@ static void handleGetDescriptor(usbip_stage2_header *header)
             for (int i = 0; i < slen; i++)
             {
                 desc->wData[i] = strings_list[header->u.cmd_submit.request.wValue.u8lo][i];
-
             }
-            usbip_send_stage2_submit_data(header, 0, (uint8_t *)temp_buff, buff_len);
+            SEND_SUBMIT_DATA(ops, header, 0, (uint8_t *)temp_buff, buff_len);
         }
         else
         {
-            os_printf("low bit : %d\r\n", (int)header->u.cmd_submit.request.wValue.u8lo);
-            os_printf("high bit : %d\r\n", (int)header->u.cmd_submit.request.wValue.u8hi);
-            os_printf("***Unsupported String descriptor***\r\n");
-            usbip_send_stage2_submit(header, 0, 0);
+            printf("low bit : %d\r\n", (int)header->u.cmd_submit.request.wValue.u8lo);
+            printf("high bit : %d\r\n", (int)header->u.cmd_submit.request.wValue.u8hi);
+            printf("***Unsupported String descriptor***\r\n");
+            SEND_SUBMIT(ops, header, 0, 0);
         }
         break;
 
     case USB_DT_INTERFACE:
-        os_printf("* GET 0x04 INTERFACE DESCRIPTOR (UNIMPLEMENTED)\r\n");
-        ////TODO:UNIMPLEMENTED
-        usbip_send_stage2_submit(header, 0, 0);
+        printf("* GET 0x04 INTERFACE DESCRIPTOR (UNIMPLEMENTED)\r\n");
+        SEND_SUBMIT(ops, header, 0, 0);
         break;
 
     case USB_DT_ENDPOINT:
-        os_printf("* GET 0x05 ENDPOINT DESCRIPTOR (UNIMPLEMENTED)\r\n");
-        ////TODO:UNIMPLEMENTED
-        usbip_send_stage2_submit(header, 0, 0);
+        printf("* GET 0x05 ENDPOINT DESCRIPTOR (UNIMPLEMENTED)\r\n");
+        SEND_SUBMIT(ops, header, 0, 0);
         break;
 
     case USB_DT_DEVICE_QUALIFIER:
-        os_printf("* GET 0x06 DEVICE QUALIFIER DESCRIPTOR\r\n");
+        printf("* GET 0x06 DEVICE QUALIFIER DESCRIPTOR\r\n");
 
         usb_device_qualifier_descriptor desc;
 
         memset(&desc, 0, sizeof(usb_device_qualifier_descriptor));
 
-        usbip_send_stage2_submit_data(header, 0, &desc, sizeof(usb_device_qualifier_descriptor));
+        SEND_SUBMIT_DATA(ops, header, 0, &desc, sizeof(usb_device_qualifier_descriptor));
         break;
 
     case USB_DT_OTHER_SPEED_CONFIGURATION:
-        os_printf("GET 0x07 [UNIMPLEMENTED] USB_DT_OTHER_SPEED_CONFIGURATION\r\n");
-        ////TODO:UNIMPLEMENTED
-        usbip_send_stage2_submit(header, 0, 0);
+        printf("GET 0x07 [UNIMPLEMENTED] USB_DT_OTHER_SPEED_CONFIGURATION\r\n");
+        SEND_SUBMIT(ops, header, 0, 0);
         break;
 
     case USB_DT_INTERFACE_POWER:
-        os_printf("GET 0x08 [UNIMPLEMENTED] USB_DT_INTERFACE_POWER\r\n");
-        ////TODO:UNIMPLEMENTED
-        usbip_send_stage2_submit(header, 0, 0);
+        printf("GET 0x08 [UNIMPLEMENTED] USB_DT_INTERFACE_POWER\r\n");
+        SEND_SUBMIT(ops, header, 0, 0);
         break;
-#if (USE_WINUSB == 1)
+#if (USBIP_ENABLE_WINUSB == 1)
     case USB_DT_BOS:
-        os_printf("* GET 0x0F BOS DESCRIPTOR\r\n");
+        printf("* GET 0x0F BOS DESCRIPTOR\r\n");
         uint32_t bos_len = header->u.cmd_submit.request.wLength.u8lo | ((uint32_t) header->u.cmd_submit.request.wLength.u8hi << 8);
         bos_len = (sizeof(bosDescriptor) < bos_len) ? sizeof(bosDescriptor) : bos_len;
-        usbip_send_stage2_submit_data(header, 0, bosDescriptor, bos_len);
+        SEND_SUBMIT_DATA(ops, header, 0, bosDescriptor, bos_len);
         break;
 #else
     case USB_DT_HID_REPORT:
-        os_printf("* GET 0x22 HID REPORT DESCRIPTOR\r\n");
-        usbip_send_stage2_submit_data(header, 0, (void *)kHidReportDescriptor, sizeof(kHidReportDescriptor));
+        printf("* GET 0x22 HID REPORT DESCRIPTOR\r\n");
+        SEND_SUBMIT_DATA(ops, header, 0, (void *)kHidReportDescriptor, sizeof(kHidReportDescriptor));
         break;
 #endif
     default:
-        //// TODO: ms os 1.0 descriptor
-        os_printf("USB unknown Get Descriptor requested:%d\r\n", header->u.cmd_submit.request.wValue.u8lo);
-        os_printf("low bit :%d\r\n",header->u.cmd_submit.request.wValue.u8lo);
-        os_printf("high bit :%d\r\n",header->u.cmd_submit.request.wValue.u8hi);
+        printf("USB unknown Get Descriptor requested:%d\r\n", header->u.cmd_submit.request.wValue.u8lo);
+        printf("low bit :%d\r\n",header->u.cmd_submit.request.wValue.u8lo);
+        printf("high bit :%d\r\n",header->u.cmd_submit.request.wValue.u8hi);
         break;
     }
 }

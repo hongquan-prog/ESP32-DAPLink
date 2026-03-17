@@ -7,12 +7,14 @@
  * Date           Author       Notes
  * 2023-9-8      lihongquan   Initial version
  * 2026-3-17     refactor     Code style compliance fixes
+ * 2026-3-17     refactor     Remove upper layer dependency, output via parameters
  */
 
 #pragma once
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,20 +45,31 @@ typedef struct
 } __attribute__((packed)) el_response_handshake_t;
 
 /**
- * @brief elaphureLink Proxy handshake phase process
- * @param fd socket fd
- * @param buffer packet buffer
- * @param len packet length
- * @return 0 on Success, other on failed
+ * @brief Check if buffer is elaphureLink handshake request
+ *
+ * @param buffer Packet buffer
+ * @param len Packet length
+ * @return true if it's a valid elaphureLink handshake request
  */
-int el_handshake_process(int fd, void *buffer, size_t len);
+bool el_is_handshake_request(const void *buffer, size_t len);
 
 /**
- * @brief Process dap data and send to socket
- * @param buffer dap data buffer
- * @param len dap data length
+ * @brief Create handshake response
+ *
+ * @param response Output buffer for response
+ * @return Response size
  */
-void el_dap_data_process(void *buffer, size_t len);
+size_t el_create_handshake_response(el_response_handshake_t *response);
+
+/**
+ * @brief Process DAP command and get response
+ *
+ * @param buffer DAP command buffer
+ * @param len DAP command length (unused, DAP commands are fixed size)
+ * @param response Output buffer for response (must be at least 1500 bytes)
+ * @param response_size Output: response size
+ */
+void el_process_dap_command(const void *buffer, size_t len, uint8_t *response, size_t *response_size);
 
 /**
  * @brief Allocate process buffer for elaphureLink

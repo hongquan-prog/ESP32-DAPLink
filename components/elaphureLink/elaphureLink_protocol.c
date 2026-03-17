@@ -6,20 +6,15 @@
  * Change Logs:
  * Date           Author       Notes
  * 2026-3-17     refactor     Code style compliance fixes
+ * 2026-3-17     refactor     Remove upper layer dependency, output via parameters
  */
 
 #include "elaphureLink_protocol.h"
+#include "DAP.h"
 
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include <lwip/netdb.h>
-
-extern int g_k_sock;
-extern int usbip_network_send(int s, const void *dataptr, size_t size, int flags);
-extern void malloc_dap_ringbuf(void);
-extern void free_dap_ringbuf(void);
-extern uint32_t DAP_ExecuteCommand(const uint8_t *request, uint8_t *response);
+#include <string.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
 
 static uint8_t *s_el_process_buffer = NULL;
 
@@ -29,8 +24,6 @@ void el_process_buffer_malloc(void)
     {
         return;
     }
-
-    free_dap_ringbuf();
 
     s_el_process_buffer = (uint8_t *)malloc(1500);
 }
@@ -44,39 +37,52 @@ void el_process_buffer_free(void)
     }
 }
 
-int el_handshake_process(int fd, void *buffer, size_t len)
+bool el_is_handshake_request(const void *buffer, size_t len)
 {
-    el_request_handshake_t *req = NULL;
+    const el_request_handshake_t *req = (const el_request_handshake_t *)buffer;
 
     if (len != sizeof(el_request_handshake_t))
     {
-        return -1;
+        return false;
     }
 
-    req = (el_request_handshake_t *)buffer;
     if (ntohl(req->el_link_identifier) != EL_LINK_IDENTIFIER)
     {
-        return -1;
+        return false;
     }
 
     if (ntohl(req->command) != EL_COMMAND_HANDSHAKE)
     {
-        return -1;
+        return false;
     }
 
-    el_response_handshake_t res;
-    res.el_link_identifier = htonl(EL_LINK_IDENTIFIER);
-    res.command = htonl(EL_COMMAND_HANDSHAKE);
-    res.el_dap_version = htonl(EL_DAP_VERSION);
-    usbip_network_send(fd, &res, sizeof(el_response_handshake_t), 0);
-
-    return 0;
+    return true;
 }
 
-void el_dap_data_process(void *buffer, size_t len)
+size_t el_create_handshake_response(el_response_handshake_t *response)
 {
-    int res = DAP_ExecuteCommand((const uint8_t *)buffer, s_el_process_buffer);
+    response->el_link_identifier = htonl(EL_LINK_IDENTIFIER);
+    response->command = htonl(EL_COMMAND_HANDSHAKE);
+    response->el_dap_version = htonl(EL_DAP_VERSION);
 
+    return sizeof(el_response_handshake_t);
+}
+
+void el_process_dap_command(const void *buffer, size_t len, uint8_t *response, size_t *response_size)
+{
+    int res;
+
+    (void)len;
+
+    if (s_el_process_buffer == NULL)
+    {
+        *response_size = 0;
+        return;
+    }
+
+    res = DAP_ExecuteCommand((const uint8_t *)buffer, s_el_process_buffer);
     res &= 0xFFFF;
-    usbip_network_send(g_k_sock, s_el_process_buffer, res, 0);
+
+    memcpy(response, s_el_process_buffer, res);
+    *response_size = res;
 }

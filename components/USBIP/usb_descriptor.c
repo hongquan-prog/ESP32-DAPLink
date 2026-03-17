@@ -29,17 +29,17 @@ const uint8_t kUSBd0DeviceDescriptor[0x12] =
     0x12,             // bLength
     USB_DT_DEVICE,    // bDescriptorType
 
-#if (USE_WINUSB == 1)
+#if (USBIP_ENABLE_WINUSB == 1)
 
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
     USBShort(0x0300), // bcdUSB
 #else
     USBShort(0x210),  // bcdUSB
-#endif // USE_USB_3_0 == 1
+#endif // USBIP_ENABLE_USB_3_0 == 1
 
 #else
     USBShort(0x0200), // bcdUSB
-#endif // (USE_WINUSB == 1)
+#endif // (USBIP_ENABLE_WINUSB == 1)
     ////TODO: Is it also available elsewhere?
 
     // We need to use a device other than the USB-IF standard, set to 0x00
@@ -47,7 +47,7 @@ const uint8_t kUSBd0DeviceDescriptor[0x12] =
     0x00, // bDeviceSubClass
     0x00, // bDeviceProtocol
 
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
     0x09,                               // bMaxPacketSize0, for USB 3.0 must set to 0x09(2^9)
 #else
     USBD0_MAX_PACKET0,                  // bMaxPacketSize0 Maximum packet size for default pipe.
@@ -72,7 +72,7 @@ const uint8_t kUSBd0DeviceDescriptor[0x12] =
 
 // Standard Interface Descriptor
 
-#if (USE_WINUSB ==1)
+#if (USBIP_ENABLE_WINUSB ==1)
 const uint8_t kUSBd0InterfaceDescriptor[]=
 {
     0x09,                                   // bLength
@@ -110,17 +110,17 @@ const uint8_t kUSBd0InterfaceDescriptor[]=
     USB_DT_ENDPOINT,                                           // bDescriptorType
     0x01,                                                      // bEndpointAddress
     USB_ENDPOINT_ATTR_BULK,                                    // bmAttributes
-    USBShort(USB_ENDPOINT_SIZE),                               // wMaxPacketSize
+    USBShort(USBIP_ENDPOINT_SIZE),                               // wMaxPacketSize
     0x00, // bInterval
 
     /*                 SuperSpeed Endpoint Companion      */
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
     0x06,                                                      // bLength
     USB_DT_SUPERSPEED_USB_ENDPOINT_COMPANION,                  // bDescriptorType
     0x00,                                                      // bMaxBurst
     0x00,                                                      // bmAttributes(MaxStream for Bulk)
     0x00, 0x00,                                                // wBytesPerInterval -> 0 for Bulk
-#endif // USE_USB_3_0 == 1
+#endif // USBIP_ENABLE_USB_3_0 == 1
 
 
     /*                 Pysical endpoint 1                 */
@@ -130,17 +130,17 @@ const uint8_t kUSBd0InterfaceDescriptor[]=
     USB_DT_ENDPOINT,                                           // bDescriptorType
     0x81,                                                      // bEndpointAddress
     USB_ENDPOINT_ATTR_BULK,                                    // bmAttributes
-    USBShort(USB_ENDPOINT_SIZE),                               // wMaxPacketSize
+    USBShort(USBIP_ENDPOINT_SIZE),                               // wMaxPacketSize
     0x00,                                                      // bInterval
 
     /*                 SuperSpeed Endpoint Companion      */
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
     0x06,                                                      // bLength
     USB_DT_SUPERSPEED_USB_ENDPOINT_COMPANION,                  // bDescriptorType
     0x00,                                                      // bMaxBurst
     0x00,                                                      // bmAttributes(MaxStream for Bulk)
     0x00, 0x00,                                                // wBytesPerInterval -> 0 for Bulk
-#endif // USE_USB_3_0 == 1
+#endif // USBIP_ENABLE_USB_3_0 == 1
 
 
     /*                 Pysical endpoint 2                */
@@ -150,17 +150,17 @@ const uint8_t kUSBd0InterfaceDescriptor[]=
     USB_DT_ENDPOINT,                                           // bDescriptorType
     0x82,                                                      // bEndpointAddress
     USB_ENDPOINT_ATTR_BULK,                                    // bmAttributes
-    USBShort(USB_ENDPOINT_SIZE),                               // wMaxPacketSize
+    USBShort(USBIP_ENDPOINT_SIZE),                               // wMaxPacketSize
     0x00,                                                      // bInterval
 
     /*                 SuperSpeed Endpoint Companion      */
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
     0x06,                                                      // bLength
     USB_DT_SUPERSPEED_USB_ENDPOINT_COMPANION,                  // bDescriptorType
     0x00,                                                      // bMaxBurst
     0x00,                                                      // bmAttributes(MaxStream for Bulk)
     0x00, 0x00,                                                // wBytesPerInterval -> 0 for Bulk
-#endif // USE_USB_3_0 == 1
+#endif // USBIP_ENABLE_USB_3_0 == 1
 
 };
 
@@ -215,7 +215,7 @@ const uint8_t kUSBd0InterfaceDescriptor[0x20]=
 // Standard Configuration Descriptor
 #define LENGTHOFCONFIGDESCRIPTOR 9
 
-#if (USE_WINUSB == 1)
+#if (USBIP_ENABLE_WINUSB == 1)
 const uint8_t kUSBd0ConfigDescriptor[LENGTHOFCONFIGDESCRIPTOR] =
 {
     // Configuration descriptor header.

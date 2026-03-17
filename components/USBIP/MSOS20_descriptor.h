@@ -15,11 +15,11 @@
 
 #define kLengthOfMsOS20 0xA2
 
-#if (USE_USB_3_0 == 1)
+#if (USBIP_ENABLE_USB_3_0 == 1)
 #define kLengthOfBos 0x32
 #else
 #define kLengthOfBos 0x21
-#endif // USE_USB_3_0 == 1
+#endif // USBIP_ENABLE_USB_3_0 == 1
 
 #define kValueOfbMS_VendorCode  0x01// Just set to 0x01
 extern const uint8_t bosDescriptor[kLengthOfBos];
