@@ -33,10 +33,10 @@
 #include "web_server.h"
 #include "programmer.h"
 #include "protocol_examples_common.h"
+#include "DAP_handle.h"
 
 static const char *TAG = "main";
 static httpd_handle_t http_server = NULL;
-TaskHandle_t kDAPTaskHandle = NULL;
 
 extern "C" void tcp_server_task(void *pvParameters);
 extern "C" void DAP_Thread(void *pvParameters);
@@ -184,6 +184,6 @@ extern "C" void app_main(void)
     xTaskCreate(tcp_server_task, "tcp_server", 4096, NULL, 14, NULL);
 #endif
 
-    // DAP handle task
-    xTaskCreate(DAP_Thread, "DAP_Task", 2048, NULL, 10, &kDAPTaskHandle);
+    // Initialize DAP task
+    dap_task_init();
 }

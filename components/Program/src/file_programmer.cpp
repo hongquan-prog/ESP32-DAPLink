@@ -1,3 +1,13 @@
+/*
+ * Copyright (c) 2023-2023, lihongquan
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2023-9-8      lihongquan   Initial version
+ * 2026-3-16     Refactor     Fixed typos and improved code style
+ */
 #include "file_programmer.h"
 #include "log.h"
 #include <sys/stat.h>
@@ -22,7 +32,7 @@ bool FileProgrammer::compare_extension(const char *filename, const char *extensi
     return false;
 }
 
-ProgramIface *FileProgrammer::selcet_program_iface(const std::string &path)
+ProgramIface *FileProgrammer::select_program_iface(const std::string &path)
 {
     if (compare_extension(path.c_str(), ".hex"))
     {
@@ -49,9 +59,10 @@ bool FileProgrammer::program(const std::string &path, FlashIface::target_cfg_t &
         return false;
     }
 
-    iface = selcet_program_iface(path);
+    iface = select_program_iface(path);
     if (iface == nullptr)
     {
+        LOG_ERROR("Unsupported file format: %s", path.c_str());
         return false;
     }
 
@@ -83,7 +94,7 @@ bool FileProgrammer::program(const std::string &path, FlashIface::target_cfg_t &
             {
                 fclose(fp);
                 iface->clean();
-                LOG_ERROR("Failed to write hex at:%x", iface->get_program_address());
+                LOG_ERROR("Failed to write at address: 0x%lx", (unsigned long)iface->get_program_address());
                 return false;
             }
 

@@ -1,25 +1,18 @@
 /*
-Copyright (c) 2015, SuperHouse Automation Pty Ltd
-All rights reserved.
+ * Copyright (c) 2015, SuperHouse Automation Pty Ltd
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Change Logs:
+ * Date           Author           Notes
+ * 2015           SuperHouse       Initial version
+ * 2026-03-17     lihongquan       Refactored according to code style guide
+ */
 
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-
-#include <string.h>
-#include <stdint.h>
-#include <sys/param.h>
-
-#include "main/wifi_configuration.h"
-#include "main/usbip_server.h"
 #include "main/tcp_netconn.h"
+#include "main/usbip_server.h"
+#include "main/wifi_configuration.h"
+#include "main/DAP_handle.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -39,8 +32,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "lwip/tcp.h"
 #include <lwip/netdb.h>
 
-#define PORT 3240
-#define EVENTS_QUEUE_SIZE 50
+#include <string.h>
+#include <stdint.h>
+#include <sys/param.h>
+
+#define PORT                        3240
+#define EVENTS_QUEUE_SIZE           50
 
 #ifdef CALLBACK_DEBUG
 #define debug(s, ...) os_printf("%s: " s "\n", "Cb:", ##__VA_ARGS__)
@@ -48,163 +45,200 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #define debug(s, ...)
 #endif
 
-QueueHandle_t xQueue_events;
 typedef struct
 {
     struct netconn *nc;
     uint8_t type;
-} netconn_events;
+} netconn_event_t;
 
-extern TaskHandle_t kDAPTaskHandle;
-extern int kRestartDAPHandle;
-extern uint8_t kState;
+static QueueHandle_t s_queue_events = NULL;
+static struct netconn *s_netconn = NULL;
 
-struct netconn *kNetconn = NULL;
-
+/**
+ * @brief Send data through TCP netconn connection
+ *
+ * @param buffer Pointer to data buffer
+ * @param len Length of data to send
+ * @return 0 on success, negative value on error
+ */
 int tcp_netconn_send(const void *buffer, size_t len)
 {
-    return netconn_write(kNetconn, buffer, len, NETCONN_COPY);
+    return netconn_write(s_netconn, buffer, len, NETCONN_COPY);
 }
 
-/*
- * This function will be call in Lwip in each event on netconn
+/**
+ * @brief Netconn callback function
+ *
+ * This function will be called in LwIP in each event on netconn
+ *
+ * @param conn Netconn connection
+ * @param evt Event type
+ * @param length Data length
  */
-static void netCallback(struct netconn *conn, enum netconn_evt evt, uint16_t length)
+static void net_callback(struct netconn *conn, enum netconn_evt evt, uint16_t length)
 {
-    // Show some callback information (debug)
+    netconn_event_t event = {0};
+
+    /* Show some callback information (debug) */
     debug("sock:%u\tsta:%u\tevt:%u\tlen:%u\ttyp:%u\tfla:%02x\terr:%d",
           (uint32_t)conn, conn->state, evt, length, conn->type, conn->flags, conn->pending_err);
 
-    netconn_events events;
-
-    // If netconn got error, it is close or deleted, dont do treatments on it.
+    /* If netconn got error, it is close or deleted, dont do treatments on it */
     if (conn->pending_err)
     {
         return;
     }
-    // Treatments only on rcv events.
+
+    /* Treatments only on rcv events */
     switch (evt)
     {
     case NETCONN_EVT_RCVPLUS:
-        events.nc = conn;
-        events.type = evt;
+        event.nc = conn;
+        event.type = evt;
         break;
+
     default:
         return;
-        break;
     }
 
-    // Send the event to the queue
-    xQueueSend(xQueue_events, &events, 1000);
+    /* Send the event to the queue */
+    xQueueSend(s_queue_events, &event, 1000);
 }
 
-/*
- *  Initialize a server netconn and listen port
+/**
+ * @brief Initialize a server netconn and listen port
+ *
+ * @param nc Pointer to netconn pointer
+ * @param port Port number to listen
+ * @param callback Callback function
  */
 static void set_tcp_server_netconn(struct netconn **nc, uint16_t port, netconn_callback callback)
 {
     if (nc == NULL)
     {
-        os_printf("%s: netconn missing .\n", __FUNCTION__);
+        os_printf("%s: netconn missing.\n", __FUNCTION__);
+
         return;
     }
-    *nc = netconn_new_with_callback(NETCONN_TCP, netCallback);
+
+    *nc = netconn_new_with_callback(NETCONN_TCP, net_callback);
     if (!*nc)
     {
         os_printf("Status monitor: Failed to allocate netconn.\n");
+
         return;
     }
+
     netconn_set_nonblocking(*nc, NETCONN_FLAG_NON_BLOCKING);
-    // netconn_set_recvtimeout(*nc, 10);
     netconn_bind(*nc, IP_ADDR_ANY, port);
     netconn_listen(*nc);
 }
 
-/*
- *  Close and delete a socket properly
+/**
+ * @brief Close and delete a socket properly
+ *
+ * @param nc Netconn connection to close
  */
 static void close_tcp_netconn(struct netconn *nc)
 {
-    nc->pending_err = ERR_CLSD; // It is hacky way to be sure than callback will don't do treatment on a netconn closed and deleted
+    /* It is hacky way to be sure than callback will don't do treatment on a netconn closed and deleted */
+    nc->pending_err = ERR_CLSD;
     netconn_close(nc);
     netconn_delete(nc);
 }
 
-void tcp_netconn_task()
+/**
+ * @brief TCP netconn server main task
+ */
+void tcp_netconn_task(void)
 {
-    xQueue_events = xQueueCreate(EVENTS_QUEUE_SIZE, sizeof(netconn_events));
-    struct netconn *nc = NULL; // To create servers
+    struct netconn *nc = NULL;
+    struct netconn *nc_in = NULL;
+    struct netbuf *netbuf = NULL;
+    netconn_event_t event = {0};
+    char *buffer = NULL;
+    uint16_t len_buf = 0;
+    int err = 0;
+    ip_addr_t client_addr = {0};
+    uint16_t client_port = 0;
 
-    set_tcp_server_netconn(&nc, PORT, netCallback);
+    s_queue_events = xQueueCreate(EVENTS_QUEUE_SIZE, sizeof(netconn_event_t));
+    set_tcp_server_netconn(&nc, PORT, net_callback);
     os_printf("Server netconn %u ready on port %u.\n", (uint32_t)nc, PORT);
-
-    struct netbuf *netbuf = NULL; // To store incoming Data
-    struct netconn *nc_in = NULL; // To accept incoming netconn
-    //
-    char *buffer;
-    uint16_t len_buf;
 
     while (1)
     {
-        netconn_events events;
-        xQueueReceive(xQueue_events, &events, portMAX_DELAY); // Wait here an event on netconn
+        /* Wait here an event on netconn */
+        xQueueReceive(s_queue_events, &event, portMAX_DELAY);
 
-        if (events.nc->state == NETCONN_LISTEN) // If netconn is a server and receive incoming event on it
+        /* If netconn is a server and receive incoming event on it */
+        if (event.nc->state == NETCONN_LISTEN)
         {
-            os_printf("Client incoming on server %u.\n", (uint32_t)events.nc);
-            int err = netconn_accept(events.nc, &nc_in);
+            os_printf("Client incoming on server %u.\n", (uint32_t)event.nc);
+            err = netconn_accept(event.nc, &nc_in);
             if (err != ERR_OK)
             {
                 if (nc_in)
+                {
                     netconn_delete(nc_in);
+                }
             }
+
             os_printf("New client is %u.\n", (uint32_t)nc_in);
-            ip_addr_t client_addr; // Address port
-            uint16_t client_port;  // Client port
             netconn_peer(nc_in, &client_addr, &client_port);
-            // tcp_nagle_disable(events.nc->pcb.tcp); // crash! DO NOT USE
         }
-        else if (events.nc->state != NETCONN_LISTEN) // If netconn is the client and receive data
+        /* If netconn is the client and receive data */
+        else if (event.nc->state != NETCONN_LISTEN)
         {
-            // tcp_nagle_disable(events.nc->pcb.tcp);
-            if ((netconn_recv(events.nc, &netbuf)) == ERR_OK) // data incoming ?
+            /* Data incoming */
+            if (netconn_recv(event.nc, &netbuf) == ERR_OK)
             {
                 do
                 {
                     netbuf_data(netbuf, (void *)&buffer, &len_buf);
-                    kNetconn = events.nc;
-                    switch (kState)
+                    s_netconn = event.nc;
+
+                    switch (usbip_get_state())
                     {
-                    case ACCEPTING:
-                        kState = ATTACHING;
-                        // fallthrough
-                    case ATTACHING:
-                        attach((uint8_t *)buffer, len_buf);
-                        kState = EMULATING;
+                    case USBIP_STATE_ACCEPTING:
+                        usbip_set_state(USBIP_STATE_ATTACHING);
+                        /* fallthrough */
+
+                    case USBIP_STATE_ATTACHING:
+                        usbip_attach((uint8_t *)buffer, len_buf);
+                        usbip_set_state(USBIP_STATE_EMULATING);
                         break;
-                    case EMULATING:
-                        emulate((uint8_t *)buffer, len_buf);
+
+                    case USBIP_STATE_EMULATING:
+                        usbip_emulate((uint8_t *)buffer, len_buf);
                         break;
+
                     default:
                         os_printf("unkonw kstate!\r\n");
                     }
                 } while (netbuf_next(netbuf) >= 0);
+
                 netbuf_delete(netbuf);
             }
             else
             {
-                if (events.nc->pending_err == ERR_CLSD)
+                if (event.nc->pending_err == ERR_CLSD)
                 {
-                    continue; // The same hacky way to treat a closed connection
+                    /* The same hacky way to treat a closed connection */
+                    continue;
                 }
+
                 os_printf("Shutting down socket and restarting...\r\n");
-                close_tcp_netconn(events.nc);
-                if (kState == EMULATING)
-                    kState = ACCEPTING;
-                // Restart DAP Handle
-                kRestartDAPHandle = 1;
-                if (kDAPTaskHandle)
-                    xTaskNotifyGive(kDAPTaskHandle);
+                close_tcp_netconn(event.nc);
+
+                if (usbip_get_state() == USBIP_STATE_EMULATING)
+                {
+                    usbip_set_state(USBIP_STATE_ACCEPTING);
+                }
+
+                /* Restart DAP Handle */
+                dap_set_restart_signal(DAP_SIGNAL_RESET);
+                dap_notify_task();
             }
         }
     }

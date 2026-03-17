@@ -1,17 +1,18 @@
-/**
- * @file kcp_server.c
- * @author windows
- * @brief usbip KCP port
- * @version 0.1
- * @date 2021-10-08
+/*
+ * Copyright (c) 2023-2023, lihongquan
  *
- * @copyright Copyright (c) 2021
+ * SPDX-License-Identifier: Apache-2.0
  *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2021-10-08    windows       Initial version
+ * 2026-03-17    lihongquan    Refactored according to code style guide
  */
 
 #include "main/kcp_server.h"
 #include "main/usbip_server.h"
 #include "main/wifi_configuration.h"
+#include "main/DAP_handle.h"
 
 #include "components/kcp/ikcp.h"
 #include "components/kcp/ikcp_util.h"
@@ -24,142 +25,183 @@
 #include "esp_event.h"
 #include "esp_log.h"
 
-
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
 
-extern TaskHandle_t kDAPTaskHandle;
-extern int kRestartDAPHandle;
 extern int kSock;
-extern uint8_t kState;
 
-static struct sockaddr_in client_addr = { 0 };
-static char kcp_buffer[MTU_SIZE];
-static ikcpcb *kcp1 = NULL;
+/* Static buffer for KCP data (>64 bytes, use static to avoid stack overflow) */
+static char s_kcp_buffer[MTU_SIZE];
+static struct sockaddr_in s_client_addr = { 0 };
+static ikcpcb *s_kcp = NULL;
 
-
-static void set_non_blocking(int sockfd) {
+/**
+ * @brief Set socket to non-blocking mode
+ *
+ * @param sockfd Socket file descriptor
+ */
+static void set_non_blocking(int sockfd)
+{
     int flag = fcntl(sockfd, F_GETFL, 0);
-    if (flag < 0) {
+
+    if (flag < 0)
+    {
         os_printf("fcntl F_GETFL fail\n");
+
         return;
     }
-    if (fcntl(sockfd, F_SETFL, flag | O_NONBLOCK) < 0) {
+
+    if (fcntl(sockfd, F_SETFL, flag | O_NONBLOCK) < 0)
+    {
         os_printf("fcntl F_SETFL fail\n");
     }
 }
 
+/**
+ * @brief UDP output callback for KCP
+ *
+ * @param buf Data buffer to send
+ * @param len Buffer length
+ * @param kcp KCP control block
+ * @param user User data pointer
+ * @return 0 on success
+ */
 static int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
 {
-	int ret = -1;
-    int time = 10;
-    // Unfortunately, esp8266 often fails due to lack of memory
-    while (ret < 0) {
-        ret = sendto(kSock, buf, len, 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
-        if (ret < 0) {
-            // os_printf("fail to send, retry\r\n");
-            int errcode = errno;
+    int ret = -1;
+    int delay_time = 10;
+    int errcode = 0;
+
+    /* Unfortunately, esp8266 often fails due to lack of memory */
+    while (ret < 0)
+    {
+        ret = sendto(kSock, buf, len, 0, (struct sockaddr *)&s_client_addr, sizeof(s_client_addr));
+        if (ret < 0)
+        {
+            errcode = errno;
             if (errno != ENOMEM)
+            {
                 os_printf("unknown errcode %d\r\n", errcode);
-            vTaskDelay(pdMS_TO_TICKS(time));
-            time += 10;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(delay_time));
+            delay_time += 10;
         }
     }
-	return 0;
-}
 
-int kcp_network_send(const char *buffer, int len) {
-    ikcp_send(kcp1, buffer, len);
-    ikcp_flush(kcp1);
     return 0;
 }
 
-void kcp_server_task()
+int kcp_network_send(const char *buffer, int len)
 {
-    TickType_t xLastWakeTime = xTaskGetTickCount();
+    ikcp_send(s_kcp, buffer, len);
+    ikcp_flush(s_kcp);
 
-    while (1) {
+    return 0;
+}
+
+void kcp_server_task(void)
+{
+    TickType_t x_last_wake_time = 0;
+    struct sockaddr_in server_addr;
+    socklen_t socklen = 0;
+    int err = 0;
+    int ret = -1;
+
+    /* 初始化 */
+    x_last_wake_time = xTaskGetTickCount();
+    /* 主循环 */
+    while (1)
+    {
+        /* 创建UDP套接字 */
         kSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-        if (kSock < 0) {
+        if (kSock < 0)
+        {
             os_printf("Unable to create socket: errno %d", errno);
             break;
         }
         os_printf("Socket created\r\n");
-
         set_non_blocking(kSock);
 
-
-        struct sockaddr_in server_addr;
+        /* 绑定套接字到本地端口 */
         memset(&server_addr, 0, sizeof(server_addr));
         server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
         server_addr.sin_family = AF_INET;
         server_addr.sin_port = htons(PORT);
-
-        socklen_t socklen = sizeof(client_addr);
-
-
-        int err = bind(kSock, (struct sockaddr *)&server_addr, sizeof(server_addr));
-        if (err < 0) {
+        socklen = sizeof(s_client_addr);
+        err = bind(kSock, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (err < 0)
+        {
             os_printf("Socket unable to bind: errno %d\r\n", errno);
         }
+
         os_printf("Socket binded\r\n");
 
-        // KCP init
-        if (kcp1 == NULL) {
-            kcp1 = ikcp_create(1, (void *)0);
+        /* 初始化KCP控制块 */
+        if (s_kcp == NULL)
+        {
+            s_kcp = ikcp_create(1, (void *)0);
         }
-        if (kcp1 == NULL) {
+
+        if (s_kcp == NULL)
+        {
             os_printf("can not create kcp control block\r\n");
             break;
         }
-        kcp1->output = udp_output;
 
-        ikcp_wndsize(kcp1, 4096, 4096);
+        s_kcp->output = udp_output;
+        ikcp_wndsize(s_kcp, 4096, 4096);
 
-        ikcp_nodelay(kcp1, 2, 2, 2, 1); // set fast mode
-        kcp1->interval = 0;
-        kcp1->rx_minrto = 1;
-        kcp1->fastresend = 1;
+        /* 设置KCP为快速模式 */
+        ikcp_nodelay(s_kcp, 2, 2, 2, 1);
+        s_kcp->interval = 0;
+        s_kcp->rx_minrto = 1;
+        s_kcp->fastresend = 1;
+        ikcp_setmtu(s_kcp, 768);
 
-        ikcp_setmtu(kcp1, 768);
+        /* KCP任务主循环 */
+        while (1)
+        {
+            /* 睡眠精确时间 */
+            vTaskDelayUntil(&x_last_wake_time, pdMS_TO_TICKS(1));
+            ikcp_update(s_kcp, iclock());
 
-
-
-        int ret = -1;
-        // KCP task main loop
-        while (1) {
-            vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1)); // we wanna sleep absolute time
-            ikcp_update(kcp1, iclock());
-
-            // recv data from udp
-            while (1) {
-                ret = recvfrom(kSock, kcp_buffer, MTU_SIZE, 0, (struct sockaddr *)&client_addr, &socklen);
-                if (ret < 0) {
+            /* 从UDP接收数据 */
+            while (1)
+            {
+                ret = recvfrom(kSock, s_kcp_buffer, MTU_SIZE, 0, (struct sockaddr *)&s_client_addr, &socklen);
+                if (ret < 0)
+                {
                     break;
                 }
-                ikcp_input(kcp1, kcp_buffer, ret);
+
+                ikcp_input(s_kcp, s_kcp_buffer, ret);
             }
 
-            // recv data from kdp
-            while (1) {
-                ret = ikcp_recv(kcp1, kcp_buffer, MTU_SIZE);
-                if (ret < 0) {
+            /* 从KCP接收数据 */
+            while (1)
+            {
+                ret = ikcp_recv(s_kcp, s_kcp_buffer, MTU_SIZE);
+                if (ret < 0)
+                {
                     break;
                 }
-                // recv user data, then handle it
-                switch (kState)
+
+                /* 接收用户数据并处理 */
+                switch (usbip_get_state())
                 {
-                case EMULATING:
-                    emulate((uint8_t *)kcp_buffer, ret);
+                case USBIP_STATE_EMULATING:
+                    usbip_emulate((uint8_t *)s_kcp_buffer, ret);
                     break;
 
-                case ACCEPTING:
-                    kState = ATTACHING;
-                    // fallthrough
-                case ATTACHING:
-                    attach((uint8_t *)kcp_buffer, ret);
+                case USBIP_STATE_ACCEPTING:
+                    usbip_set_state(USBIP_STATE_ATTACHING);
+                    /* fallthrough */
+
+                case USBIP_STATE_ATTACHING:
+                    usbip_attach((uint8_t *)s_kcp_buffer, ret);
                     break;
 
                 default:
@@ -167,21 +209,28 @@ void kcp_server_task()
                 }
             }
         }
-        if (kcp1) {
-            ikcp_release(kcp1);
+
+        /* 清理资源 */
+        if (s_kcp)
+        {
+            ikcp_release(s_kcp);
         }
-        if (kSock != -1) {
+
+        if (kSock != -1)
+        {
             os_printf("Shutting down socket and restarting...\r\n");
             shutdown(kSock, 0);
             close(kSock);
+            if (usbip_get_state() == USBIP_STATE_EMULATING)
+            {
+                usbip_set_state(USBIP_STATE_ACCEPTING);
+            }
 
-            if (kState == EMULATING)
-                kState = ACCEPTING;
-            // Restart DAP Handle
-            kRestartDAPHandle = 1;
-            if (kDAPTaskHandle)
-                xTaskNotifyGive(kDAPTaskHandle);
+            /* 重启DAP Handle */
+            dap_set_restart_signal(DAP_SIGNAL_RESET);
+            dap_notify_task();
         }
     }
+
     vTaskDelete(NULL);
 }

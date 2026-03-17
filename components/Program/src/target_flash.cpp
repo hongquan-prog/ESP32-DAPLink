@@ -97,7 +97,7 @@ FlashIface::err_t TargetFlash::flash_init(const target_cfg_t &cfg)
     // get default region
     for (auto &flash_region : _flash_cfg->flash_regions)
     {
-        if (flash_region.flags & REIGION_DEFAULT)
+        if (flash_region.flags & REGION_DEFAULT)
         {
             _default_flash_region = &flash_region;
             break;

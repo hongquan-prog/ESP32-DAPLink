@@ -5,7 +5,8 @@
  *
  * Change Logs:
  * Date           Author       Notes
- * 2023-9-8      lihongquan   add license declaration
+ * 2023-9-8      lihongquan   Initial version
+ * 2026-3-16     Refactor     Fixed typos and improved code style
  */
 #include <cstdio>
 #include <cstring>
@@ -27,7 +28,7 @@ const std::vector<std::string> AlgoExtractor::_function_list = {
     "ProgramPage",
     "Verify"};
 
-const uint32_t AlgoExtractor::_flash_bolb_header[8] = {0xE00ABE00, 0x062D780D, 0x24084068, 0xD3000040, 0x1E644058, 0x1C49D1FA, 0x2A001E52, 0x4770D1F};
+const uint32_t AlgoExtractor::_flash_blob_header[8] = {0xE00ABE00, 0x062D780D, 0x24084068, 0xD3000040, 0x1E644058, 0x1C49D1FA, 0x2A001E52, 0x4770D1F};
 
 AlgoExtractor::AlgoExtractor()
 {
@@ -161,11 +162,11 @@ bool AlgoExtractor::extract_flash_device(FILE *fp, Elf_Sym &sym, Elf_Shdr &shdr,
 bool AlgoExtractor::extract_flash_algo(FILE *fp, Elf_Shdr &code_scn, FlashIface::program_target_t &target)
 {
     fseek(fp, code_scn.sh_offset, SEEK_SET);
-    target.algo_size = sizeof(_flash_bolb_header) + code_scn.sh_size;
+    target.algo_size = sizeof(_flash_blob_header) + code_scn.sh_size;
     target.algo_blob = new uint32_t[target.algo_size / sizeof(uint32_t)];
-    memcpy(target.algo_blob, _flash_bolb_header, sizeof(_flash_bolb_header));
+    memcpy(target.algo_blob, _flash_blob_header, sizeof(_flash_blob_header));
 
-    if (fread(target.algo_blob + sizeof(_flash_bolb_header) / sizeof(uint32_t), 1, code_scn.sh_size, fp) != code_scn.sh_size)
+    if (fread(target.algo_blob + sizeof(_flash_blob_header) / sizeof(uint32_t), 1, code_scn.sh_size, fp) != code_scn.sh_size)
         throw std::runtime_error("could not read flash algo");
 
     return true;
@@ -209,7 +210,7 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
         target.algo_start = ram_start;
 
         /* 在 DAPLink 中，static_base 是指程序的静态基地址（Static Base Address）。静态基地址是一个指针，指向程序的全局变量和静态变量的起始位置。 */
-        target.sys_call_s.static_base = target.algo_start + prog_table["PrgCode"].sh_size + sizeof(_flash_bolb_header);
+        target.sys_call_s.static_base = target.algo_start + prog_table["PrgCode"].sh_size + sizeof(_flash_blob_header);
         target.sys_call_s.breakpoint = target.algo_start + 1;
         /* 设置栈顶指针,位于数据段之后,栈大小为4K */
         target.sys_call_s.stack_pointer = ((target.algo_start + target.algo_size) + 0x100 - 1) / 0x100 * 0x100 + _stack_size;
@@ -217,18 +218,18 @@ bool AlgoExtractor::extract(const std::string &path, FlashIface::program_target_
         target.program_buffer = target.sys_call_s.stack_pointer;
         target.program_buffer_size = device->szPage;
         /* 设置Flash读写函数的地址 */
-        target.init = (sym_table.find("Init") != sym_table.end()) ? (sym_table["Init"].st_value + sizeof(_flash_bolb_header) + target.algo_start) : (0);
-        target.uninit = (sym_table.find("UnInit") != sym_table.end()) ? (sym_table["UnInit"].st_value + sizeof(_flash_bolb_header) + target.algo_start) : (0);
-        target.erase_chip = (sym_table.find("EraseChip") != sym_table.end()) ? (sym_table["EraseChip"].st_value + sizeof(_flash_bolb_header) + target.algo_start) : (0);
-        target.erase_sector = (sym_table.find("EraseSector") != sym_table.end()) ? (sym_table["EraseSector"].st_value + sizeof(_flash_bolb_header) + target.algo_start) : (0);
-        target.program_page = (sym_table.find("ProgramPage") != sym_table.end()) ? (sym_table["ProgramPage"].st_value + sizeof(_flash_bolb_header) + target.algo_start) : (0);
-        target.verify = (sym_table.find("Verify") != sym_table.end()) ? (sym_table["Verify"].st_value + sizeof(_flash_bolb_header) + target.algo_start) : (0);
+        target.init = (sym_table.find("Init") != sym_table.end()) ? (sym_table["Init"].st_value + sizeof(_flash_blob_header) + target.algo_start) : (0);
+        target.uninit = (sym_table.find("UnInit") != sym_table.end()) ? (sym_table["UnInit"].st_value + sizeof(_flash_blob_header) + target.algo_start) : (0);
+        target.erase_chip = (sym_table.find("EraseChip") != sym_table.end()) ? (sym_table["EraseChip"].st_value + sizeof(_flash_blob_header) + target.algo_start) : (0);
+        target.erase_sector = (sym_table.find("EraseSector") != sym_table.end()) ? (sym_table["EraseSector"].st_value + sizeof(_flash_blob_header) + target.algo_start) : (0);
+        target.program_page = (sym_table.find("ProgramPage") != sym_table.end()) ? (sym_table["ProgramPage"].st_value + sizeof(_flash_blob_header) + target.algo_start) : (0);
+        target.verify = (sym_table.find("Verify") != sym_table.end()) ? (sym_table["Verify"].st_value + sizeof(_flash_blob_header) + target.algo_start) : (0);
 
         cfg.sector_info.clear();
         cfg.flash_regions.clear();
         cfg.ram_regions.clear();
         cfg.erase_reset = false;
-        cfg.flash_regions.push_back(FlashIface::region_info_t{device->devAdr, device->devAdr + device->szDev, FlashIface::REIGION_DEFAULT, &target});
+        cfg.flash_regions.push_back(FlashIface::region_info_t{device->devAdr, device->devAdr + device->szDev, FlashIface::REGION_DEFAULT, &target});
         cfg.ram_regions.push_back(FlashIface::region_info_t{ram_start, target.program_buffer + target.program_buffer_size, 0, nullptr});
         cfg.device_name.replace(0, cfg.device_name.size(), device->devName);
 

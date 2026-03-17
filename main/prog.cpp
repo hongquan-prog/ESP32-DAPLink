@@ -1,8 +1,8 @@
 #include "prog.h"
 
-Prog::prog_swith_mode_t Prog::_switch_func = nullptr;
+Prog::prog_switch_mode_t Prog::_switch_func = nullptr;
 
-void Prog::register_switch_mode_function(const prog_swith_mode_t &func)
+void Prog::register_switch_mode_function(const prog_switch_mode_t &func)
 {
     _switch_func = func;
 }
