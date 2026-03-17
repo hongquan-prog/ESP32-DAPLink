@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.cpp" 
+idf_component_register(SRCS "main.cpp"
                         "cdc_uart.c"
                         "msc_disk.c"
                         "web_handler.cpp"
@@ -16,6 +16,7 @@ idf_component_register(SRCS "main.cpp"
                         "prog_idle.cpp"
                         "prog_online.cpp"
                         "prog_offline.cpp"
+                        "serial_manager.c"
                        INCLUDE_DIRS .
                        EMBED_FILES "../html/root.html"
                         "../html/favicon.ico"

@@ -34,7 +34,7 @@
 #include <stdint.h>
 #include <sys/param.h>
 
-int kSock = -1;
+int g_k_sock = -1;
 
 /**
  * @brief TCP server main task
@@ -118,20 +118,20 @@ void tcp_server_task(void *pvParameters)
         while (1)
         {
             /* Accept incoming connection */
-            kSock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
-            if (kSock < 0)
+            g_k_sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
+            if (g_k_sock < 0)
             {
                 os_printf("Unable to accept connection: errno %d\r\n", errno);
                 break;
             }
 
-            setsockopt(kSock, SOL_SOCKET, SO_KEEPALIVE, (void *)&on, sizeof(on));
-            setsockopt(kSock, IPPROTO_TCP, TCP_NODELAY, (void *)&on, sizeof(on));
+            setsockopt(g_k_sock, SOL_SOCKET, SO_KEEPALIVE, (void *)&on, sizeof(on));
+            setsockopt(g_k_sock, IPPROTO_TCP, TCP_NODELAY, (void *)&on, sizeof(on));
             os_printf("Socket accepted\r\n");
 
             while (1)
             {
-                len = recv(kSock, tcp_rx_buffer, sizeof(tcp_rx_buffer), 0);
+                len = recv(g_k_sock, tcp_rx_buffer, sizeof(tcp_rx_buffer), 0);
 
                 /* Error occured during receiving */
                 if (len < 0)
@@ -156,7 +156,7 @@ void tcp_server_task(void *pvParameters)
 
                     case USBIP_STATE_ATTACHING:
                         /* elaphureLink handshake */
-                        if (el_handshake_process(kSock, tcp_rx_buffer, len) == 0)
+                        if (el_handshake_process(g_k_sock, tcp_rx_buffer, len) == 0)
                         {
                             /* handshake successed */
                             usbip_set_state(USBIP_STATE_EL_DATA_PHASE);
@@ -183,10 +183,10 @@ void tcp_server_task(void *pvParameters)
             }
 
             /* Clean up connection */
-            if (kSock != -1)
+            if (g_k_sock != -1)
             {
                 os_printf("Shutting down socket and restarting...\r\n");
-                close(kSock);
+                close(g_k_sock);
 
                 usbip_state_t state = usbip_get_state();
                 if (state == USBIP_STATE_EMULATING || state == USBIP_STATE_EL_DATA_PHASE)

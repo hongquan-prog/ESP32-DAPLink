@@ -22,6 +22,7 @@
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
 
+extern int g_k_sock;
 
 const char *strings_list[] = {
         0, // reserved: available languages  -> iInterface
@@ -233,14 +234,14 @@ static void handleGetDescriptor(usbip_stage2_header *header)
             os_printf("Sending only first part of CONFIG\r\n");
 
             usbip_send_stage2_submit(header, 0, header->u.cmd_submit.data_length);
-            usbip_network_send(kSock, kUSBd0ConfigDescriptor, sizeof(kUSBd0ConfigDescriptor), 0);
+            usbip_network_send(g_k_sock, kUSBd0ConfigDescriptor, sizeof(kUSBd0ConfigDescriptor), 0);
         }
         else
         {
             os_printf("Sending ALL CONFIG\r\n");
             usbip_send_stage2_submit(header, 0, sizeof(kUSBd0ConfigDescriptor) + sizeof(kUSBd0InterfaceDescriptor));
-            usbip_network_send(kSock, kUSBd0ConfigDescriptor, sizeof(kUSBd0ConfigDescriptor), 0);
-            usbip_network_send(kSock, kUSBd0InterfaceDescriptor, sizeof(kUSBd0InterfaceDescriptor), 0);
+            usbip_network_send(g_k_sock, kUSBd0ConfigDescriptor, sizeof(kUSBd0ConfigDescriptor), 0);
+            usbip_network_send(g_k_sock, kUSBd0InterfaceDescriptor, sizeof(kUSBd0InterfaceDescriptor), 0);
         }
         break;
 

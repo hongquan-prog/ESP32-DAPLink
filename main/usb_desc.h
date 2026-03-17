@@ -63,12 +63,42 @@ extern "C"
         VENDOR_REQUEST_MICROSOFT = 2
     };
 
+    /**
+     * @brief Get the USB device descriptor
+     * @return Pointer to device descriptor structure
+     */
     tusb_desc_device_t *get_device_descriptor(void);
+
+    /**
+     * @brief Get the USB string descriptor array
+     * @param enable_msc Whether MSC interface is enabled
+     * @return Array of string descriptor pointers
+     */
     const char **get_string_descriptor(bool enable_msc);
+
+    /**
+     * @brief Get the count of string descriptors
+     * @return Number of string descriptors
+     */
     int get_string_descriptor_count(void);
+
+    /**
+     * @brief Get the USB configuration descriptor
+     * @param enable_msc Whether MSC interface is enabled
+     * @return Pointer to configuration descriptor
+     */
     const uint8_t *get_configuration_descriptor(bool enable_msc);
 #ifdef CONFIG_BULK_DAPLINK
+    /**
+     * @brief Get the Microsoft OS 2.0 descriptor
+     * @return Pointer to MS OS 2.0 descriptor
+     */
     uint8_t *get_ms_descriptor(void);
+
+    /**
+     * @brief Get the WebUSB landing page URL
+     * @return Pointer to WebUSB URL descriptor
+     */
     tusb_desc_webusb_url_t *get_webusb_url(void);
 #endif
 

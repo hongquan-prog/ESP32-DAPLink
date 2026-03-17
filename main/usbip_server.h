@@ -28,8 +28,6 @@ typedef enum
     USBIP_STATE_EL_DATA_PHASE
 } usbip_state_t;
 
-extern int kSock;
-
 /**
  * @brief Get current USBIP state
  *

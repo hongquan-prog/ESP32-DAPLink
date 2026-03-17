@@ -6,6 +6,7 @@
  * Change Logs:
  * Date           Author       Notes
  * 2023-9-8      lihongquan   add license declaration
+ * 2026-3-17     refactor     Integrate SerialManager for serial port management
  */
 
 #include <stdint.h>
@@ -34,6 +35,7 @@
 #include "programmer.h"
 #include "protocol_examples_common.h"
 #include "DAP_handle.h"
+#include "serial_manager.h"
 
 static const char *TAG = "main";
 static httpd_handle_t http_server = NULL;
@@ -140,23 +142,27 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, disconnect_handler, &http_server));
     ESP_ERROR_CHECK(example_connect());
 
-    tinyusb_config_t tusb_cfg = {
+    tinyusb_config_t tusb_cfg =
+    {
         .device_descriptor = NULL,
         .string_descriptor = NULL,
         .string_descriptor_count = 0,
         .external_phy = false,
         .configuration_descriptor = NULL,
         .self_powered = false,
-        .vbus_monitor_io = 0};
+        .vbus_monitor_io = 0
+    };
 
-    tinyusb_config_cdcacm_t acm_cfg = {
+    tinyusb_config_cdcacm_t acm_cfg =
+    {
         .usb_dev = TINYUSB_USBDEV_0,
         .cdc_port = TINYUSB_CDC_ACM_0,
         .rx_unread_buf_sz = 64,
-        .callback_rx = usb_cdc_send_to_uart, // the first way to register a callback
+        .callback_rx = usb_cdc_send_to_uart, /* The first way to register a callback */
         .callback_rx_wanted_char = NULL,
-        .callback_line_state_changed = NULL,
-        .callback_line_coding_changed = usb_cdc_set_line_codinig};
+        .callback_line_state_changed = usb_cdc_line_state_changed,
+        .callback_line_coding_changed = usb_cdc_set_line_codinig
+    };
 
     DAP_Setup();
 
@@ -172,6 +178,11 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(tusb_cdc_acm_init(&acm_cfg));
 
     programmer_init();
+
+    // Initialize SerialManager for state management
+    serial_manager_init(UART_NUM_1, GPIO_NUM_13, GPIO_NUM_14, 115200);
+
+    // Initialize UART (always enabled, SerialManager manages data routing)
     cdc_uart_init(UART_NUM_1, GPIO_NUM_13, GPIO_NUM_14, 115200);
     cdc_uart_register_rx_handler(CDC_UART_USB_HANDLER, usb_cdc_send_to_host, (void *)TINYUSB_CDC_ACM_0);
     cdc_uart_register_rx_handler(CDC_UART_WEB_HANDLER, web_send_to_clients, &http_server);

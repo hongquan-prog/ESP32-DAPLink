@@ -30,7 +30,7 @@
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
 
-extern int kSock;
+extern int g_k_sock;
 
 /* Static buffer for KCP data (>64 bytes, use static to avoid stack overflow) */
 static char s_kcp_buffer[MTU_SIZE];
@@ -77,7 +77,7 @@ static int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
     /* Unfortunately, esp8266 often fails due to lack of memory */
     while (ret < 0)
     {
-        ret = sendto(kSock, buf, len, 0, (struct sockaddr *)&s_client_addr, sizeof(s_client_addr));
+        ret = sendto(g_k_sock, buf, len, 0, (struct sockaddr *)&s_client_addr, sizeof(s_client_addr));
         if (ret < 0)
         {
             errcode = errno;
@@ -116,14 +116,14 @@ void kcp_server_task(void)
     while (1)
     {
         /* 创建UDP套接字 */
-        kSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-        if (kSock < 0)
+        g_k_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+        if (g_k_sock < 0)
         {
             os_printf("Unable to create socket: errno %d", errno);
             break;
         }
         os_printf("Socket created\r\n");
-        set_non_blocking(kSock);
+        set_non_blocking(g_k_sock);
 
         /* 绑定套接字到本地端口 */
         memset(&server_addr, 0, sizeof(server_addr));
@@ -131,7 +131,7 @@ void kcp_server_task(void)
         server_addr.sin_family = AF_INET;
         server_addr.sin_port = htons(PORT);
         socklen = sizeof(s_client_addr);
-        err = bind(kSock, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        err = bind(g_k_sock, (struct sockaddr *)&server_addr, sizeof(server_addr));
         if (err < 0)
         {
             os_printf("Socket unable to bind: errno %d\r\n", errno);
@@ -171,7 +171,7 @@ void kcp_server_task(void)
             /* 从UDP接收数据 */
             while (1)
             {
-                ret = recvfrom(kSock, s_kcp_buffer, MTU_SIZE, 0, (struct sockaddr *)&s_client_addr, &socklen);
+                ret = recvfrom(g_k_sock, s_kcp_buffer, MTU_SIZE, 0, (struct sockaddr *)&s_client_addr, &socklen);
                 if (ret < 0)
                 {
                     break;
@@ -216,11 +216,11 @@ void kcp_server_task(void)
             ikcp_release(s_kcp);
         }
 
-        if (kSock != -1)
+        if (g_k_sock != -1)
         {
             os_printf("Shutting down socket and restarting...\r\n");
-            shutdown(kSock, 0);
-            close(kSock);
+            shutdown(g_k_sock, 0);
+            close(g_k_sock);
             if (usbip_get_state() == USBIP_STATE_EMULATING)
             {
                 usbip_set_state(USBIP_STATE_ACCEPTING);

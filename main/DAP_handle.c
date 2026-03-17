@@ -51,8 +51,7 @@ typedef struct
 
 #define DAP_HANDLE_SIZE (sizeof(dap_packet_t))
 
-extern int kSock;
-
+extern int g_k_sock;
 static TaskHandle_t s_dap_task_handle = NULL;
 static dap_signal_t s_restart_signal = DAP_SIGNAL_NONE;
 
@@ -371,7 +370,7 @@ int fast_reply(uint8_t *buf, uint32_t length)
             buf_header->u.ret_submit.status = 0;
             buf_header->u.ret_submit.data_length = 0;
             buf_header->u.ret_submit.error_count = 0;
-            usbip_network_send(kSock, buf, 48, 0);
+            usbip_network_send(g_k_sock, buf, 48, 0);
 
             return 1;
         }

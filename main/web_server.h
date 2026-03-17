@@ -32,8 +32,19 @@ extern "C"
 {
 #endif
 
-    bool web_server_init(httpd_handle_t *server);
-    bool web_server_stop(httpd_handle_t *server);
+    /**
+ * @brief Initialize and start the web server
+ * @param server Pointer to httpd_handle_t to store the server handle
+ * @return true on success, false on failure
+ */
+bool web_server_init(httpd_handle_t *server);
+
+/**
+ * @brief Stop and cleanup the web server
+ * @param server Pointer to httpd_handle_t containing the server handle
+ * @return true on success, false on failure
+ */
+bool web_server_stop(httpd_handle_t *server);
 
 #ifdef __cplusplus
 }

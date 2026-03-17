@@ -26,6 +26,7 @@
 
 #include <string.h>
 
+extern int g_k_sock;
 static usbip_state_t s_usbip_state = USBIP_STATE_ACCEPTING;
 
 /* attach helper function */
@@ -148,7 +149,7 @@ static void _send_stage1_header(uint16_t command, uint32_t status)
     header.command = htons(command);
     header.status = htonl(status);
 
-    usbip_network_send(kSock, (uint8_t *)&header, sizeof(usbip_stage1_header), 0);
+    usbip_network_send(g_k_sock, (uint8_t *)&header, sizeof(usbip_stage1_header), 0);
 }
 
 static void _send_device_list(void)
@@ -160,7 +161,7 @@ static void _send_device_list(void)
 
     /* we have only 1 device */
     response_devlist.list_size = htonl(1);
-    usbip_network_send(kSock, (uint8_t *)&response_devlist, sizeof(usbip_stage1_response_devlist), 0);
+    usbip_network_send(g_k_sock, (uint8_t *)&response_devlist, sizeof(usbip_stage1_response_devlist), 0);
 
     /* send device info */
     _send_device_info();
@@ -194,7 +195,7 @@ static void _send_device_info(void)
     device.bNumConfigurations = 1;
     device.bNumInterfaces = 1;
 
-    usbip_network_send(kSock, (uint8_t *)&device, sizeof(usbip_stage1_usb_device), 0);
+    usbip_network_send(g_k_sock, (uint8_t *)&device, sizeof(usbip_stage1_usb_device), 0);
 }
 
 static void _send_interface_info(void)
@@ -208,7 +209,7 @@ static void _send_interface_info(void)
     interface.bInterfaceProtocol = USBD_CUSTOM_CLASS0_IF0_PROTOCOL;
     interface.padding = 0;
 
-    usbip_network_send(kSock, (uint8_t *)&interface, sizeof(usbip_stage1_usb_interface), 0);
+    usbip_network_send(g_k_sock, (uint8_t *)&interface, sizeof(usbip_stage1_usb_interface), 0);
 }
 
 int usbip_emulate(uint8_t *buffer, uint32_t length)
@@ -371,7 +372,7 @@ void usbip_send_stage2_submit(usbip_stage2_header *req_header, int32_t status, i
     req_header->u.ret_submit.data_length = data_length;
 
     _pack(req_header, sizeof(usbip_stage2_header));
-    usbip_network_send(kSock, req_header, sizeof(usbip_stage2_header), 0);
+    usbip_network_send(g_k_sock, req_header, sizeof(usbip_stage2_header), 0);
 }
 
 void usbip_send_stage2_submit_data(usbip_stage2_header *req_header, int32_t status, const void *const data, int32_t data_length)
@@ -380,7 +381,7 @@ void usbip_send_stage2_submit_data(usbip_stage2_header *req_header, int32_t stat
 
     if (data_length)
     {
-        usbip_network_send(kSock, data, data_length, 0);
+        usbip_network_send(g_k_sock, data, data_length, 0);
     }
 }
 
@@ -396,7 +397,7 @@ void usbip_send_stage2_submit_data_fast(usbip_stage2_header *req_header, const v
 
     /* payload */
     memcpy(&send_buf[sizeof(usbip_stage2_header)], data, data_length);
-    usbip_network_send(kSock, send_buf, sizeof(usbip_stage2_header) + data_length, 0);
+    usbip_network_send(g_k_sock, send_buf, sizeof(usbip_stage2_header) + data_length, 0);
 }
 
 static void _handle_unlink(usbip_stage2_header *header)
@@ -421,5 +422,5 @@ static void _send_stage2_unlink(usbip_stage2_header *req_header)
     req_header->u.ret_unlink.status = -1;
 
     _pack(req_header, sizeof(usbip_stage2_header));
-    usbip_network_send(kSock, req_header, sizeof(usbip_stage2_header), 0);
+    usbip_network_send(g_k_sock, req_header, sizeof(usbip_stage2_header), 0);
 }

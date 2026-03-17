@@ -13,6 +13,11 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Mount the MSC disk at the specified path
+ * @param path Mount path for the MSC disk
+ * @return true on success, false on failure
+ */
 bool msc_dick_mount(const char *path);
 
 #ifdef __cplusplus

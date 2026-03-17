@@ -6,16 +6,24 @@
  * Change Logs:
  * Date           Author       Notes
  * 2023-9-8      lihongquan   add license declaration
+ * 2026-3-17     refactor     Add USB connection state detection
  */
 #include "usb_cdc_handler.h"
 #include "cdc_uart.h"
 #include "esp_log.h"
+#include "serial_manager.h"
 
 #define TAG "usb_cdc_handler"
 
 void usb_cdc_send_to_host(void *context, uint8_t *data, size_t size)
 {
     ESP_LOGD(TAG, "data %p, size %d", data, size);
+
+    /* Only send to USB when in USB state */
+    if (serial_manager_get_state() != SERIAL_STATE_USB)
+    {
+        return;
+    }
 
     if (tud_cdc_n_connected((int)context))
     {
@@ -45,4 +53,19 @@ void usb_cdc_send_to_uart(int itf, cdcacm_event_t *event)
     {
         cdc_uart_write(buf, rx_size);
     }
+}
+
+void usb_cdc_line_state_changed(int itf, cdcacm_event_t *event)
+{
+    /*
+     * DTR is asserted when a terminal application connects.
+     * We use DTR to detect USB CDC connection.
+     */
+    bool dtr = event->line_state_changed_data.dtr;
+    bool rts = event->line_state_changed_data.rts;
+
+    ESP_LOGI(TAG, "USB CDC line state changed: DTR=%d, RTS=%d", dtr, rts);
+
+    /* Notify SerialManager about USB connection state */
+    serial_manager_set_usb_connected(dtr);
 }

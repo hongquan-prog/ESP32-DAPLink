@@ -64,11 +64,42 @@ TaskHandle_t dap_get_task_handle(void);
  */
 void dap_notify_task(void);
 
+/**
+ * @brief Handle DAP data request from USBIP
+ * @param header USBIP stage2 header
+ * @param length Total length of the request
+ */
 void handle_dap_data_request(usbip_stage2_header *header, uint32_t length);
+
+/**
+ * @brief Handle DAP data response to USBIP
+ * @param header USBIP stage2 header
+ */
 void handle_dap_data_response(usbip_stage2_header *header);
+
+/**
+ * @brief Handle SWO trace response
+ * @param header USBIP stage2 header
+ */
 void handle_swo_trace_response(usbip_stage2_header *header);
+
+/**
+ * @brief Handle DAP unlink request
+ */
 void handle_dap_unlink(void);
+
+/**
+ * @brief DAP task main function
+ * @param argument Task argument (unused)
+ */
 void dap_task(void *argument);
+
+/**
+ * @brief Generate fast reply for DAP commands
+ * @param buf Output buffer for reply
+ * @param length Buffer length
+ * @return Number of bytes written, 0 if no fast reply available
+ */
 int fast_reply(uint8_t *buf, uint32_t length);
 
 #ifdef __cplusplus

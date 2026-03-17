@@ -6,6 +6,7 @@
  * Change Logs:
  * Date           Author       Notes
  * 2023-9-8      lihongquan   add license declaration
+ * 2026-3-17     refactor     Integrate SerialManager for web serial
  */
 #include <stdbool.h>
 #include <string.h>
@@ -20,6 +21,7 @@
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "hex_program.h"
+#include "serial_manager.h"
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -66,6 +68,12 @@ void web_send_to_clients(void *context, uint8_t *data, size_t size)
     if (!http_server)
         return;
 
+    /* Only send to web clients when in WEB state */
+    if (serial_manager_get_state() != SERIAL_STATE_WEB)
+    {
+        return;
+    }
+
     if (httpd_get_client_list(http_server, &clients, client_fds) == ESP_OK)
     {
         for (size_t i = 0; i < clients; ++i)
@@ -78,6 +86,58 @@ void web_send_to_clients(void *context, uint8_t *data, size_t size)
     }
 }
 
+static httpd_handle_t s_http_server = NULL;
+
+void web_notify_serial_state(int state)
+{
+    size_t clients = CONFIG_HTTPD_MAX_OPENED_SOCKETS;
+    static int client_fds[CONFIG_HTTPD_MAX_OPENED_SOCKETS] = {0};
+    const char *state_str = "IDLE";
+    char json_msg[64] = {0};
+    httpd_ws_frame_t ws_pkt = {false, false, HTTPD_WS_TYPE_TEXT, NULL, 0};
+
+    if (!s_http_server)
+        return;
+
+    /* Build JSON message: {"type":"state_change","state":"USB"} */
+    switch (state)
+    {
+    case SERIAL_STATE_USB:
+        state_str = "USB";
+        break;
+
+    case SERIAL_STATE_WEB:
+        state_str = "WEB";
+        break;
+
+    case SERIAL_STATE_IDLE:
+    default:
+        state_str = "IDLE";
+        break;
+    }
+
+    snprintf(json_msg, sizeof(json_msg), "{\"type\":\"state_change\",\"state\":\"%s\"}", state_str);
+
+    ws_pkt.payload = (uint8_t *)json_msg;
+    ws_pkt.len = strlen(json_msg);
+
+    if (httpd_get_client_list(s_http_server, &clients, client_fds) == ESP_OK)
+    {
+        for (size_t i = 0; i < clients; ++i)
+        {
+            if (httpd_ws_get_fd_info(s_http_server, client_fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET)
+            {
+                httpd_ws_send_frame_async(s_http_server, client_fds[i], &ws_pkt);
+            }
+        }
+    }
+}
+
+void web_set_server_handle(httpd_handle_t server)
+{
+    s_http_server = server;
+}
+
 esp_err_t web_send_to_uart(httpd_req_t *req)
 {
     esp_err_t ret = ESP_OK;
@@ -87,6 +147,8 @@ esp_err_t web_send_to_uart(httpd_req_t *req)
     if (req->method == HTTP_GET)
     {
         ESP_LOGI(TAG, "Handshake done, the new connection was opened");
+        // Notify SerialManager about new web client
+        serial_manager_web_client_connected();
         return ESP_OK;
     }
 
@@ -113,9 +175,18 @@ esp_err_t web_send_to_uart(httpd_req_t *req)
         goto __exit;
     }
 
+    // Handle close frame
+    if (ws_pkt.type == HTTPD_WS_TYPE_CLOSE)
+    {
+        ESP_LOGI(TAG, "WebSocket close frame received");
+        serial_manager_web_client_disconnected();
+        goto __exit;
+    }
+
     if (ws_pkt.type == HTTPD_WS_TYPE_TEXT)
     {
-        cdc_uart_write(data->buf, ws_pkt.len);
+        // Use SerialManager to send data
+        serial_manager_send_to_uart(data->buf, ws_pkt.len);
     }
 
     ret = ESP_OK;
@@ -861,6 +932,97 @@ esp_err_t web_online_program_handler(httpd_req_t *req)
 
     httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_sendstr(req, "Target program successfully");
+
+    return ESP_OK;
+}
+
+esp_err_t web_set_uart_config_handler(httpd_req_t *req)
+{
+    web_data_t *data = (web_data_t *)req->user_ctx;
+    int received = 0;
+    int remaining = req->content_len;
+    int total_received = 0;
+    cJSON *root = NULL;
+    cJSON *baudrate_item = NULL;
+    cJSON *data_bits_item = NULL;
+    cJSON *parity_item = NULL;
+    cJSON *stop_bits_item = NULL;
+    int data_bits = 0;
+    int parity = 0;
+    int stop_bits = 0;
+    uint32_t baudrate = 0;
+
+    if (req->method != HTTP_POST)
+    {
+        httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED, "Method not allowed");
+        return ESP_FAIL;
+    }
+
+    if (req->content_len >= CONFIG_HTTPD_RESP_BUF_SIZE)
+    {
+        ESP_LOGE(TAG, "Request too large");
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Request too large");
+        return ESP_FAIL;
+    }
+
+    while (remaining > 0)
+    {
+        received = httpd_req_recv(req, (char *)data->buf + total_received, remaining);
+        if (received <= 0)
+        {
+            if (received == HTTPD_SOCK_ERR_TIMEOUT)
+            {
+                continue;
+            }
+            ESP_LOGE(TAG, "Failed to receive request body");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive data");
+            return ESP_FAIL;
+        }
+        total_received += received;
+        remaining -= received;
+    }
+
+    data->buf[total_received] = '\0';
+
+    /* Parse JSON request */
+    root = cJSON_Parse((char *)data->buf);
+    if (!root)
+    {
+        ESP_LOGE(TAG, "Failed to parse JSON");
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    /* Get baudrate (optional) */
+    baudrate_item = cJSON_GetObjectItem(root, "baudrate");
+    if (baudrate_item && cJSON_IsNumber(baudrate_item))
+    {
+        baudrate = (uint32_t)baudrate_item->valueint;
+        ESP_LOGI(TAG, "Setting baudrate to %" PRIu32, baudrate);
+        serial_manager_set_baudrate(baudrate);
+    }
+
+    /* Get UART config (optional) */
+    data_bits_item = cJSON_GetObjectItem(root, "data_bits");
+    parity_item = cJSON_GetObjectItem(root, "parity");
+    stop_bits_item = cJSON_GetObjectItem(root, "stop_bits");
+
+    if (data_bits_item && cJSON_IsNumber(data_bits_item) &&
+        parity_item && cJSON_IsNumber(parity_item) &&
+        stop_bits_item && cJSON_IsNumber(stop_bits_item))
+    {
+        data_bits = data_bits_item->valueint;
+        parity = parity_item->valueint;
+        stop_bits = stop_bits_item->valueint;
+
+        ESP_LOGI(TAG, "Setting UART config: data_bits=%d, parity=%d, stop_bits=%d", data_bits, parity, stop_bits);
+        serial_manager_set_config(data_bits, parity, stop_bits);
+    }
+
+    cJSON_Delete(root);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"success\"}");
 
     return ESP_OK;
 }

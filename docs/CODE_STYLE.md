@@ -179,6 +179,43 @@ SWDIface *_swd;                        ///< SWD interface instance
 const target_cfg_t *_flash_cfg;        ///< Flash configuration
 ```
 
+### 4.1 头文件函数声明注释
+
+**所有头文件中的函数声明必须添加注释**，说明函数的功能、参数和返回值。
+
+```c
+/**
+ * @brief Initialize the UART interface
+ * @param uart UART port number
+ * @param tx_pin TX GPIO pin number
+ * @param rx_pin RX GPIO pin number
+ * @param baudrate Baud rate setting
+ * @return true on success, false on failure
+ */
+bool uart_init(uart_port_t uart, gpio_num_t tx_pin, gpio_num_t rx_pin, int baudrate);
+
+/**
+ * @brief Send data to UART
+ * @param data Pointer to data buffer
+ * @param size Size of data to send
+ * @return true on success, false on failure
+ */
+bool uart_write(const uint8_t *data, size_t size);
+
+/**
+ * @brief Get current baud rate
+ * @param baudrate Pointer to store baud rate value
+ * @return true on success, false on failure
+ */
+bool uart_get_baudrate(uint32_t *baudrate);
+```
+
+**注释要求：**
+- 必须包含 `@brief` 描述函数功能
+- 参数必须使用 `@param` 说明，格式：`@param 参数名 参数说明`
+- 有返回值的函数必须使用 `@return` 说明返回值含义
+- 注释放在函数声明上方，与函数声明之间不留空行
+
 <br />
 
 ## 5. 代码风格
@@ -564,6 +601,7 @@ void send_data(tcp_context_t *ctx, const char *buf, int len)
 | **枚举值**   | 全大写 + 下划线前缀，枚举名用 `_def` 后缀                       |
 | **文件组织**  | `inc/` 存头文件，`src/` 存源文件，标准库在前项目头文件在后             |
 | **文档注释**  | Doxygen 风格：`@brief`, `@param`, `@return`, `///<` |
+| **头文件函数声明** | 所有函数声明必须添加注释，包含 `@brief`、`@param`、`@return` |
 | **缩进**    | 4 空格，不用 Tab                                      |
 | **花括号**   | 左括号独立成行，右括号后空一行                                  |
 | **空行规则**  | 代码紧凑不留空行，`}` 后非 `else`/`while` 空一行，return 前空一行 |
