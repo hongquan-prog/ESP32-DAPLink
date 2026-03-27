@@ -1,6 +1,8 @@
-# USBIP DAP 响应竞态条件修复
+# USBIP DAP 响应竞态条件修复 (历史文档)
 
-## 问题概述
+> **注意**: 本文档描述的是旧 USBIP 架构的问题和修复。当前代码已使用新的 usbipd 架构（位于 `components/usbipd/`），但本文档中的性能测试数据仍有参考价值。
+
+## 问题概述（已解决）
 
 ### 现象
 
@@ -15,12 +17,12 @@
 ### 影响范围
 
 - 无线 USBIP 调试场景
-- 使用 WinUSB 模式 (`USBIP_ENABLE_WINUSB=1`)
+- 使用 WinUSB 模式
 - 网络延迟较高时问题更明显
 
-## 根因分析
+## 根因分析（旧架构）
 
-### USBIP DAP 数据流
+旧架构中的竞态条件：
 
 ```
 主机 (Keil/OpenOCD)                    ESP32-DAPLink
@@ -36,199 +38,49 @@
        |<-- RSP_SUBMIT (data_length=0) ----|  空响应！
 ```
 
-### 问题代码位置
+## 新架构解决方案
 
-系统中有两个处理 EP1 IN 请求的函数：
+新的 usbipd 架构（`components/usbipd/`）已完全重新设计，解决了这些问题：
 
-1. **`fast_reply()`** - `main/dap/DAP_handle.c:345`
-   - 原本就有等待逻辑
-   - 正确处理了竞态条件
+### 1. 生产者-消费者 URB 处理
+- `usbip_urb.c` 实现了 URB 队列
+- 独立线程处理 URB，避免竞态条件
+- 支持超时和 unlink 操作
 
-2. **`fast_reply()`** - `main/usbip/usbip_server.c:549`
-   - **缺少等待逻辑** - 这是问题根源
-   - 当 DAP 响应未就绪时直接返回空响应
+### 2. 响应等待机制
 
-### 竞态条件详解
-
-```
-时间线:
-T0: 主机发送 DAP 命令 (EP1 OUT)
-T1: USBIP 立即返回 ACK (RSP_SUBMIT)
-T2: DAP 任务收到命令，开始处理
-T3: 主机发送 IN 请求 (EP1 IN)  <-- 可能在 T4 之前
-T4: DAP 任务完成处理，将响应放入 ring buffer
-
-如果 T3 < T4:
-  - 响应尚未就绪 (dap_respond == 0)
-  - 原代码直接返回空响应
-  - 主机收到空数据，报告错误
-```
-
-## 解决方案
-
-### 核心思路
-
-当 IN 请求到达时，如果 DAP 响应尚未就绪，**等待一段时间**让 DAP 任务完成处理，而不是立即返回空响应。
-
-### 指数退避等待策略
-
-使用指数退避轮询，平衡响应速度和 CPU 占用：
+在 `hid_dap.c` 和 `bulk_dap.c` 中，EP1 IN 请求处理：
 
 ```c
-int wait_count = 0;
-const int max_wait_ms = 200;
-const int poll_intervals[] = {1, 2, 5, 10, 20, 50, 100, 200};
-const int num_intervals = sizeof(poll_intervals) / sizeof(poll_intervals[0]);
-int interval_idx = 0;
-
-while (dap_respond == 0 && wait_count < max_wait_ms)
+if (vdap.response_pending)
 {
-    int delay = poll_intervals[interval_idx];
-    vTaskDelay(pdMS_TO_TICKS(delay));
-    wait_count += delay;
-
-    if (interval_idx < num_intervals - 1)
-    {
-        interval_idx++;
-    }
-
-    dap_respond = dap_get_respond_count();
+    // 返回实际响应
+    *data_out = osal_malloc(vdap.response_len);
+    memcpy(*data_out, vdap.response, vdap.response_len);
+    *data_len = vdap.response_len;
+    urb_ret->u.ret_submit.actual_length = vdap.response_len;
+    vdap.response_pending = 0;
 }
-```
-
-### 设计考量
-
-1. **最大等待时间 200ms**：
-   - 足以覆盖 DAP 硬件初始化时间（如 DAP_Connect）
-   - 不会让主机认为连接超时
-
-2. **指数退避间隔**：
-   - 初始快速轮询（1ms）确保低延迟
-   - 逐渐增加间隔降低 CPU 占用
-   - 避免忙等浪费 CPU 资源
-
-3. **超时处理**：
-   - 如果 200ms 后仍无响应，返回空响应
-   - 记录警告日志便于调试
-
-## 代码变更
-
-### 文件：`main/usbip/usbip_server.c`
-
-函数 `fast_reply()` 在 `dap_respond == 0` 分支添加等待逻辑：
-
-```c
 else
 {
-    /*
-     * No response ready yet. Wait for DAP task to process.
-     * This is critical for commands like DAP_Connect that need
-     * time to initialize hardware (SWD/JTAG setup).
-     *
-     * The host may send IN request immediately after OUT command ACK.
-     * We need to wait for the DAP task to process and produce a response.
-     * Maximum wait: 200ms with exponential backoff polling.
-     */
-    int wait_count = 0;
-    const int max_wait_ms = 200;
-    const int poll_intervals[] = {1, 2, 5, 10, 20, 50, 100, 200};
-    const int num_intervals = sizeof(poll_intervals) / sizeof(poll_intervals[0]);
-    int interval_idx = 0;
-
-    while (dap_respond == 0 && wait_count < max_wait_ms)
-    {
-        int delay = poll_intervals[interval_idx];
-        vTaskDelay(pdMS_TO_TICKS(delay));
-        wait_count += delay;
-
-        if (interval_idx < num_intervals - 1)
-        {
-            interval_idx++;
-        }
-
-        dap_respond = dap_get_respond_count();
-    }
-
-    if (dap_respond > 0)
-    {
-        /* Response is now available, retry to get it */
-        item = dap_receive_out_packet(&packet_size);
-        if (packet_size == dap_get_handle_size())
-        {
-            uint8_t *data = dap_packet_get_data(item);
-            uint32_t data_len = dap_packet_get_length(item);
-
-            usbip_send_stage2_submit_data_fast_ctx(ctx, (usbip_stage2_header *)buf, data, data_len);
-
-            dap_release_out_packet(item);
-            dap_decrement_respond_count();
-
-            return 1;
-        }
-        else if (packet_size > 0)
-        {
-            printf("Wrong data out packet size after wait:%d!\r\n", packet_size);
-            if (item)
-            {
-                dap_release_out_packet(item);
-            }
-        }
-    }
-
-    /* Still no response after waiting, return empty to indicate device is busy */
-    printf("DAP response timeout after %dms, dap_respond=%d\r\n", wait_count, dap_respond);
-    buf_header->base.command = PP_HTONL(USBIP_STAGE2_RSP_SUBMIT);
-    buf_header->base.direction = PP_HTONL(USBIP_DIR_OUT);
-    buf_header->u.ret_submit.status = 0;
-    buf_header->u.ret_submit.data_length = 0;
-    buf_header->u.ret_submit.error_count = 0;
-
-    usbip_context_send(ctx, buf, 48);
-
-    return 1;
+    // 无响应时延迟 1ms 后返回空（让主机重试）
+    osal_sleep_ms(1);
+    *data_out = NULL;
+    *data_len = 0;
+    urb_ret->u.ret_submit.actual_length = 0;
 }
 ```
 
-## 验证结果
-
-### 测试环境
-
-- 硬件：ESP32-S3
-- 软件：Keil MDK 5.x
-- 协议：USBIP over WiFi
-- 模式：WinUSB
-
-### 测试结果
-
-| 测试项 | 修复前 | 修复后 |
-|--------|--------|--------|
-| DAP_Connect | 失败 (RDDI-DAP error) | 成功 |
-| Flash 编程 | 失败 | 成功 |
-| 调试会话 | 无法建立 | 正常 |
-| 响应延迟 | N/A | < 50ms (典型) |
-
-## 相关文件
-
-- `main/usbip/usbip_server.c` - USBIP 协议处理，包含 `fast_reply()`
-- `main/dap/DAP_handle.c` - DAP 异步处理，包含 `fast_reply()` (参考实现)
-- `components/debug_probe/DAP/Source/DAP.c` - CMSIS-DAP 核心实现
-
-## 经验总结
-
-1. **异步系统中的竞态条件**：当生产者和消费者运行在不同任务时，必须考虑时序窗口
-2. **API 一致性**：类似功能的函数（如 `fast_reply()` 和 `fast_reply()`）应保持一致的行为
-3. **调试方法**：USBIP 协议分析是定位无线调试问题的有效手段
-4. **防御性编程**：网络环境的不确定性要求更健壮的超时处理
-
-## 参考资料
-
-- CMSIS-DAP 文档：https://arm-software.github.io/CMSIS_5/DAP/html/index.html
-- USBIP 协议：https://usbip.sourceforge.net/
-- 项目 CODE_STYLE.md：代码风格规范
+### 3. 线程安全
+- 使用互斥锁保护共享状态
+- 条件变量用于线程同步
+- FreeRTOS 兼容实现（`osal_thread_delete()`）
 
 ---
 
-## 性能分析测试记录
+## 性能分析测试记录（参考数据）
+
+以下测试数据来自旧架构，但网络延迟特征仍然适用。
 
 ### 测试日期：2026-03-19
 
@@ -283,12 +135,6 @@ I (43318) usbip_svc: Request timing: count=60, avg=0.918 ms, min=0.896 ms, max=1
 
 设备处理仅占总往返时间的 ~1ms，其余延迟来自网络传输（WiFi RTT 典型值 ~4ms）。
 
-#### 下一步
-
-需要测量网络 RTT：
-- 从 `send()` 调用（响应发送前）到下一次 `recv()` 调用（收到新请求）
-- 这将捕获网络往返时间 + PC 处理时间
-
 ---
 
 ### 测试日期：2026-03-19（网络 RTT 测量）
@@ -339,3 +185,12 @@ I (26888) usbip_svc: Network RTT: count=135, avg=7.342 ms, min=4.323 ms, max=101
 3. **偶发延迟**：100ms+ 的峰值来自 WiFi 干扰或重传
 4. **设备处理高效**：仅 0.9ms，占比很小
 5. **无线调试限制**：~125 req/sec，远低于 USB 直连（>1000 req/sec）
+
+---
+
+## 参考资料
+
+- CMSIS-DAP 文档：https://arm-software.github.io/CMSIS_5/DAP/html/index.html
+- USBIP 协议：https://usbip.sourceforge.net/
+- 项目 CODE_STYLE.md：代码风格规范
+- 新的 USBIP 实现：`components/usbipd/`

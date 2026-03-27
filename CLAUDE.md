@@ -9,6 +9,7 @@ ESP32-DAPLink is an ESP32-S3 based hardware debugger implementing CMSIS-DAP prot
 - CDC serial communication (USB and Web Serial)
 - Offline firmware programming with Keil FLM algorithm support
 - Remote programming via web interface
+- Wireless debugging via USBIP protocol
 
 ## Build Commands
 
@@ -47,9 +48,37 @@ idf.py menuconfig
 components/
 ├── debug_probe/   # CMSIS-DAP implementation (DAP.c, SW_DP.c, JTAG_DP.c, swd.c)
 ├── Program/       # Offline programming (flash algorithms, HEX/BIN parsing, SWD host)
-├── USBIP/         # USBIP protocol for networked debugging
-├── elaphureLink/  # elaphureLink protocol
-├── kcp/           # KCP protocol for reliable transport
+├── usbipd/        # USBIP server for wireless debugging
+│   ├── include/   # Public headers
+│   │   ├── usbip_server.h      # Server main interface
+│   │   ├── usbip_protocol.h    # USBIP protocol definitions
+│   │   ├── usbip_devmgr.h      # Device driver interface
+│   │   ├── usbip_control.h     # Control transfer framework
+│   │   ├── usbip_hid.h         # HID device base class
+│   │   ├── usbip_common.h      # Common definitions
+│   │   └── hal/                # Hardware abstraction layer
+│   │       ├── usbip_osal.h    # OS abstraction (mutex, thread, etc.)
+│   │       ├── usbip_transport.h # Transport abstraction
+│   │       └── usbip_log.h     # Logging system
+│   └── src/
+│       ├── server/             # Server core
+│       │   ├── usbip_server.c  # Connection management
+│       │   ├── usbip_urb.c     # URB processing (producer-consumer)
+│       │   ├── usbip_devmgr.c  # Device management
+│       │   └── usbip_protocol.c # Protocol utilities
+│       ├── device/             # Device base classes
+│       │   ├── usbip_hid.c     # HID device implementation
+│       │   └── usbip_bulk.c    # Bulk device implementation
+│       ├── hal/                # HAL implementations
+│       │   ├── usbip_osal.c    # OSAL wrapper functions
+│       │   ├── usbip_mempool.c # Static memory pool
+│       │   └── usbip_transport.c # Transport interface
+│       ├── platform/espidf/    # ESP-IDF specific
+│       │   ├── osal_espidf.c   # FreeRTOS implementation
+│       │   └── transport_espidf.c # lwIP TCP transport
+│       └── device_drivers/     # DAP device drivers
+│           ├── hid_dap.c       # HID CMSIS-DAP (busid: 2-1)
+│           └── bulk_dap.c      # Bulk CMSIS-DAP (busid: 2-2)
 └── util/          # Utilities (LED control)
 
 main/              # Application entry point and handlers
@@ -64,10 +93,27 @@ main/              # Application entry point and handlers
 
 ### Key Data Flows
 
-1. **DAP Debugging**: Host (Keil/OpenOCD) → USB (HID/WinUSB) → DAP_ProcessCommand() → SWD/JTAG → Target
-2. **USB Serial**: Host CDC → tud_cdc_rx_cb → usb_cdc_send_to_uart() → UART → Target
-3. **Web Serial**: Browser WebSocket → web_handler → SerialManager → UART → Target
-4. **Serial Output**: UART RX → cdc_uart → (USB CDC || WebSocket broadcast)
+1. **DAP Debugging (USB)**: Host (Keil/OpenOCD) → USB (HID/Bulk) → DAP_ProcessCommand() → SWD/JTAG → Target
+2. **DAP Debugging (USBIP)**: Host → USBIP protocol → usbip_server → hid_dap/bulk_dap → DAP_ProcessCommand() → SWD/JTAG → Target
+3. **USB Serial**: Host CDC → tud_cdc_rx_cb → usb_cdc_send_to_uart() → UART → Target
+4. **Web Serial**: Browser WebSocket → web_handler → SerialManager → UART → Target
+5. **Serial Output**: UART RX → cdc_uart → (USB CDC || WebSocket broadcast)
+
+### USBIP Architecture
+
+The USBIP implementation uses a modular, multi-threaded architecture:
+
+- **Server Thread**: Accepts TCP connections, handles OP_REQ_DEVLIST/OP_REQ_IMPORT
+- **Connection Thread**: Per-client connection handling
+- **URB Processor Thread**: Producer-consumer queue for URB processing
+- **Device Drivers**: Auto-registered via constructor attribute
+
+Key files:
+- `usbip_server.c`: Main server loop, connection management
+- `usbip_urb.c`: URB queue and processor thread
+- `hid_dap.c`: HID device driver with MS OS 2.0 descriptors
+- `bulk_dap.c`: Bulk device driver for WinUSB
+- `osal_espidf.c`: FreeRTOS OSAL implementation with `osal_thread_delete()`
 
 ### Serial Port Management
 
@@ -107,4 +153,5 @@ Managed via ESP-IDF component manager (`dependencies.lock`):
 ## Important Files
 
 - `components/debug_probe/DAP/Config/DAP_config.h`: DAP pin assignments
+- `components/usbipd/Kconfig`: USBIP server configuration options
 - `algorithm/`: FLM flash algorithm files for offline programming

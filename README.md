@@ -7,7 +7,7 @@ ESP32-DAPLink is an open-source hardware debugger based on ESP32-S3, implementin
 - **DAPLink Online Debugging**: Supports both HID and WinUSB/Bulk modes for online debugging with Keil MDK, OpenOCD, and other debug tools
 - **CDC Serial Communication**: USB CDC serial communication for seamless data transfer between host and target device
 - **Web Serial Support**: Web browser-based serial communication via WebSocket, enabling remote monitoring and control
-- **Wireless Debugging**: WiFi-based wireless debugging through USBIP(USB over IP) and elaphureLink protocols
+- **Wireless Debugging**: WiFi-based wireless debugging through USBIP (USB over IP) protocol
 - **Offline Programming**: Standalone firmware programming with automatic Keil FLM algorithm parsing
 - **Remote Programming**: Web interface for remote firmware updates and device programming
 
@@ -18,14 +18,17 @@ ESP32-DAPLink/
 ├── components/
 │   ├── debug_probe/    # CMSIS-DAP implementation (DAP.c, SW_DP.c, JTAG_DP.c)
 │   ├── Program/        # Offline programming (flash algorithms, HEX/BIN parsing)
-│   ├── USBIP/          # USBIP protocol definitions and USB handling
-│   ├── elaphureLink/   # elaphureLink protocol
-│   ├── kcp/            # KCP protocol for reliable transport
+│   ├── usbipd/         # USBIP server for wireless debugging
+│   │   ├── include/    # Public headers (usbip_server.h, usbip_protocol.h, etc.)
+│   │   └── src/        # Source files
+│   │       ├── server/     # USBIP server core (connection, URB handling)
+│   │       ├── device/     # HID/Bulk device base classes
+│   │       ├── hal/        # OS abstraction layer (OSAL, mempool, transport)
+│   │       ├── platform/   # ESP-IDF specific implementations
+│   │       └── device_drivers/  # HID DAP and Bulk DAP drivers
 │   └── util/           # Utilities (LED control)
 ├── main/
 │   ├── main.cpp        # Entry point, USB init, WiFi, task creation
-│   ├── dap/            # DAP command handling
-│   │   ├── DAP_handle.c/.h    # DAP command processing
 │   ├── serial/         # Serial port management
 │   │   ├── cdc_uart.c/.h      # UART bridge implementation
 │   │   └── serial_manager.c/.h # USB/Web serial state management
@@ -33,15 +36,6 @@ ESP32-DAPLink/
 │   │   ├── usb_desc.c/.h      # USB descriptors
 │   │   ├── usb_cdc_handler.c/.h # USB CDC callbacks
 │   │   └── msc_disk.c/.h      # Mass storage emulation
-│   ├── usbip/          # USBIP server implementation
-│   │   ├── usbip_server.c/.h  # USBIP state machine
-│   │   ├── usbip_service.c/.h # USBIP service entry point
-│   │   ├── usbip_context.c/.h # USBIP connection context
-│   │   └── transport/         # Transport abstraction layer
-│   │       ├── transport.c/.h       # Transport interface
-│   │       ├── transport_tcp.c/.h   # TCP socket transport
-│   │       ├── transport_netconn.c/.h # LwIP netconn transport
-│   │       └── transport_kcp.c/.h   # KCP reliable transport
 │   ├── web/            # Web server and handlers
 │   │   ├── web_server.c/.h     # HTTP/WebSocket server
 │   │   └── web_handler.cpp/.h  # WebSocket serial and programming handlers
@@ -109,14 +103,16 @@ Navigate to `ESP32 DAPLink Configuration` → `DAPLink connection method`:
 | **HID** | Connect to computer by HID (Required for Keil MDK) |
 | **Bulk** | Connect to computer by bulk transmission (Recommended) |
 
-### USBIP Settings
+### USBIP Server Settings
 
-Navigate to `USBIP Configuration`:
+Navigate to `USBIP Server Configuration`:
 
 | Option | Description |
 |--------|-------------|
-| `Enable WinUSB mode` | Enable WinUSB for better performance |
-| `USB Speed` | Select USB 2.0 (512 bytes) or USB 3.0 (1024 bytes) |
+| `Enable USBIP server` | Enable USBIP for wireless debugging |
+| `Server port` | TCP port for USBIP server (default: 3240) |
+| `URB thread stack size` | Stack size for URB processing thread |
+| `URB thread priority` | Priority for URB processing thread |
 
 ### Debug Probe Settings
 
@@ -144,9 +140,9 @@ Add udev rules for CMSIS-DAP device access:
 # Create udev rule file
 sudo nano /etc/udev/rules.d/60-cmsis-dap.rules
 
-# Add the following content
-SUBSYSTEM=="usb", ATTR{idVendor}=="0d28", ATTR{idProduct}=="0204", MODE="0666", GROUP="plugdev"
-SUBSYSTEM=="usb", ATTR{idVendor}=="0d28", ATTR{idProduct}=="0204", TAG+="uaccess"
+# Add the following content (for elaphureLink VID/PID)
+SUBSYSTEM=="usb", ATTR{idVendor}=="faed", ATTR{idProduct}=="4873", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTR{idVendor}=="faed", ATTR{idProduct}=="4873", TAG+="uaccess"
 
 # Apply the rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
@@ -166,23 +162,6 @@ virtual bool off(void) = 0;
 virtual transfer_err_def transfer(uint32_t request, uint32_t data) = 0;
 virtual void swj_sequence(uint32_t count, const uint8_t *data) = 0;
 virtual void set_target_reset(uint8_t asserted) = 0;
-```
-
-## USBIP Transport Layer
-
-The USBIP implementation supports multiple transport backends through an abstraction layer:
-
-| Transport | Description |
-|-----------|-------------|
-| `transport_tcp` | Standard TCP socket (default) |
-| `transport_netconn` | LwIP netconn API (lightweight) |
-| `transport_kcp` | KCP reliable UDP (experimental, for high-latency networks) |
-
-Configure the transport in `main/usbip/usbip_config.h`:
-
-```c
-#define USBIP_USE_TCP_NETCONN 0  // Use LwIP netconn
-#define USBIP_USE_KCP         0  // Use KCP protocol
 ```
 
 ## Contributing
