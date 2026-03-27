@@ -6,3 +6,4 @@ sdkconfig.old
 DAP/*
 managed_components/*
 dependencies.lock
+ignore/*

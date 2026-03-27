@@ -1,0 +1,52 @@
+# USBIP Server Configuration
+#
+menu "USBIP Server Configuration"
+
+config USBIP_SERVER_ENABLED
+    bool "Enable USBIP Server"
+    default y
+    help
+        Enable USBIP server for wireless debugging.
+
+config USBIP_SERVER_PORT
+    int "Server listen port"
+    default 3240
+    depends on USBIP_SERVER_ENABLED
+    help
+        The TCP port for the USBIP server to listen on.
+        Default is 3240 (standard USBIP port).
+
+config URB_THREAD_STACK_SIZE
+    int "USBIP server task stack size"
+    default 4096
+    depends on USBIP_SERVER_ENABLED
+    help
+        Stack size for the USBIP server task.
+
+config URB_THREAD_PRIORITY
+    int "USBIP server task priority"
+    default 14
+    depends on USBIP_SERVER_ENABLED
+    help
+        Priority for the USBIP server task.
+
+# Log Configuration
+config USBIP_LOG_LEVEL
+    int "USBIP log level"
+    range 0 4
+    default 3
+    depends on USBIP_SERVER_ENABLED
+    help
+        Set the log level for USBIP server.
+        0 = None
+        1 = Error
+        2 = Warning
+        3 = Info
+        4 = Debug
+
+config DAP_LOG_LEVEL
+    int "DAPLink log level"
+    default 3
+    range 0 4
+
+endmenu
