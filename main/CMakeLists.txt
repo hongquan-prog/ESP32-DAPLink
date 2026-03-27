@@ -9,12 +9,14 @@ idf_component_register(SRCS "main.cpp"
                         # Web
                         "web/web_handler.cpp"
                         "web/web_server.c"
-                        # DAP
-                        "dap/DAP_handle.c"
                         # USBIP
                         "usbip/usbip_server.c"
                         "usbip/usbip_context.c"
                         "usbip/usbip_service.c"
+                        "usbip/usbip_protocol.c"
+                        "usbip/usbip_endpoint_handler.c"
+                        "usbip/dap_handler.c"
+                        "usbip/swo_handler.c"
                         "usbip/transport/transport.c"
                         "usbip/transport/transport_tcp.c"
                         "usbip/transport/transport_netconn.c"
@@ -26,7 +28,7 @@ idf_component_register(SRCS "main.cpp"
                         "programmer/prog_idle.cpp"
                         "programmer/prog_online.cpp"
                         "programmer/prog_offline.cpp"
-                       INCLUDE_DIRS . usbip usbip/transport usb serial web dap programmer
+                       INCLUDE_DIRS . usbip usbip/transport usb serial web programmer
                        EMBED_FILES "../html/root.html"
                         "../html/favicon.ico"
                         "../html/program.html"

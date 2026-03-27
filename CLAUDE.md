@@ -78,12 +78,6 @@ main/              # Application entry point and handlers
 
 Priority: USB > Web > Idle
 
-### USB Modes
-
-Controlled by `USBIP_ENABLE_WINUSB` in `main/dap_configuration.h`:
-- `USBIP_ENABLE_WINUSB=1`: WinUSB mode (recommended, DAP_PACKET_SIZE=512)
-- `USBIP_ENABLE_WINUSB=0`: HID mode (Keil MDK requires this, DAP_PACKET_SIZE=255)
-
 ### Programming Architecture
 
 The `Program` component implements a streaming programmer pattern:

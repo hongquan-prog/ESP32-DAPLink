@@ -34,9 +34,10 @@
 #include "web/web_server.h"
 #include "programmer/programmer.h"
 #include "protocol_examples_common.h"
-#include "dap/DAP_handle.h"
 #include "serial/serial_manager.h"
 #include "usbip/usbip_service.h"
+#include "usbip/dap_handler.h"
+#include "usbip/swo_handler.h"
 #include "usbip/transport/transport_tcp.h"
 #include "usbip/transport/transport_netconn.h"
 #include "usbip/transport/transport_kcp.h"
@@ -200,6 +201,7 @@ extern "C" void app_main(void)
     xTaskCreate(usbip_service_task, "usbip_server", 4096, (void *)transport_tcp_get_ops(), 14, NULL);
 #endif
 
-    // Initialize DAP task
-    dap_task_init();
+    // Initialize endpoint handlers
+    dap_handler_init();
+    swo_handler_init();
 }

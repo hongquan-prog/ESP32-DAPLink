@@ -11,8 +11,9 @@
 
 #include "usbip/usbip_service.h"
 #include "usbip/usbip_context.h"
-#include "usbip/usbip_server.h"
-#include "dap/DAP_handle.h"
+#include "usbip/usbip_protocol.h"
+#include "usbip/usbip_endpoint_handler.h"
+#include "usbip/dap_handler.h"
 #include "usbip/usbip_config.h"
 
 #include "components/USBIP/usb_handle.h"
@@ -24,19 +25,11 @@
 #include <errno.h>
 #include <arpa/inet.h>
 
-/* Global context for backward compatibility */
-static usbip_context_t *s_current_ctx = NULL;
+/** USBIP protocol version (0x0111 = 273) */
+#define USBIP_VERSION 0x0111
 
 /* Static buffer for elaphureLink response (>64 bytes, avoid stack allocation) */
 static uint8_t s_el_response_buffer[1500];
-
-/**
- * @brief Get current USBIP context (for backward compatibility)
- */
-usbip_context_t *usbip_service_get_current_context(void)
-{
-    return s_current_ctx;
-}
 
 /**
  * @brief USBIP attach stage handling
@@ -57,16 +50,6 @@ static int _read_stage1_command(uint8_t *buffer, uint32_t length);
  * @brief Read stage2 command
  */
 static int _read_stage2_command(usbip_stage2_header *header, uint32_t length);
-
-/**
- * @brief Pack header for network transmission
- */
-static void _pack(void *data, int size);
-
-/**
- * @brief Unpack header from network
- */
-static void _unpack(void *data, int size);
 
 /* Stage 1 handlers */
 static void _handle_device_list(usbip_context_t *ctx, uint8_t *buffer, uint32_t length);
@@ -113,7 +96,6 @@ void usbip_service_task(void *arg)
     }
 
     printf("USBIP server listening on port %d\r\n", USBIP_PORT);
-    s_current_ctx = ctx;
 
     /* Main service loop */
     while (1)
@@ -128,9 +110,6 @@ void usbip_service_task(void *arg)
 
         printf("Client connected\r\n");
         ctx->state = USBIP_STATE_ATTACHING;
-
-        /* Set global context for legacy API compatibility */
-        usbip_set_global_context(ctx);
 
         /* Connection loop */
         while (1)
@@ -161,7 +140,6 @@ void usbip_service_task(void *arg)
                     usbip_context_send(ctx, &el_res, res_len);
 
                     ctx->state = USBIP_STATE_EL_DATA_PHASE;
-                    dap_set_restart_signal(DAP_SIGNAL_DELETE);
                     el_process_buffer_malloc();
                 }
                 else
@@ -184,7 +162,6 @@ void usbip_service_task(void *arg)
                     }
                 }
                 break;
-
             default:
                 printf("Unknown state: %d\r\n", ctx->state);
                 break;
@@ -195,41 +172,16 @@ void usbip_service_task(void *arg)
         printf("Shutting down connection...\r\n");
         usbip_context_close(ctx);
 
-        /* Clear global context */
-        usbip_set_global_context(NULL);
-
         /* Reset DAP */
         el_process_buffer_free();
-        dap_set_restart_signal(DAP_SIGNAL_RESET);
-        dap_notify_task();
+        dap_clear_response();
 
         ctx->state = USBIP_STATE_ACCEPTING;
     }
 
     /* Cleanup */
-    s_current_ctx = NULL;
     usbip_context_destroy(ctx);
     vTaskDelete(NULL);
-}
-
-int usbip_service_process_data(usbip_context_t *ctx, uint8_t *buffer, uint32_t length)
-{
-    if (ctx == NULL)
-    {
-        return -1;
-    }
-
-    switch (ctx->state)
-    {
-    case USBIP_STATE_ATTACHING:
-        return _handle_attach(ctx, buffer, length);
-
-    case USBIP_STATE_EMULATING:
-        return _handle_emulate(ctx, buffer, length);
-
-    default:
-        return -1;
-    }
 }
 
 /* Stage 1 implementation */
@@ -290,7 +242,7 @@ static void _handle_device_attach(usbip_context_t *ctx, uint8_t *buffer, uint32_
 
     printf("Handling dev attach request...\r\n");
 
-    if (length < sizeof(USBIP_BUSID_SIZE))
+    if (length < sizeof(usbip_stage1_header) + USBIP_BUSID_SIZE)
     {
         printf("handle device attach failed!\r\n");
         return;
@@ -307,7 +259,7 @@ static void _send_stage1_header(usbip_context_t *ctx, uint16_t command, uint32_t
 
     printf("Sending header...\r\n");
 
-    header.version = htons(273);
+    header.version = htons(USBIP_VERSION);
     header.command = htons(command);
     header.status = htonl(status);
 
@@ -374,17 +326,16 @@ static void _send_interface_info(usbip_context_t *ctx)
 
 static int _handle_emulate(usbip_context_t *ctx, uint8_t *buffer, uint32_t length)
 {
-    int command = 0;
     usbip_stage2_header *header = (usbip_stage2_header *)buffer;
+    int command;
 
     /* Fast reply path for DAP data */
-    if (fast_reply_ctx(ctx, buffer, length))
+    if (fast_reply(ctx, buffer, length))
     {
         return 0;
     }
 
     command = _read_stage2_command(header, length);
-
     if (command < 0)
     {
         return -1;
@@ -412,44 +363,22 @@ static int _read_stage2_command(usbip_stage2_header *header, uint32_t length)
         return -1;
     }
 
-    _unpack((uint32_t *)header, sizeof(usbip_stage2_header));
+    usbip_swap_header(header, sizeof(usbip_stage2_header));
     return header->base.command;
-}
-
-static void _pack(void *data, int size)
-{
-    int sz = (size / sizeof(uint32_t)) - 2;
-    uint32_t *ptr = (uint32_t *)data;
-
-    for (int i = 0; i < sz; i++)
-    {
-        ptr[i] = htonl(ptr[i]);
-    }
-}
-
-static void _unpack(void *data, int size)
-{
-    int sz = (size / sizeof(uint32_t)) - 2;
-    uint32_t *ptr = (uint32_t *)data;
-
-    for (int i = 0; i < sz; i++)
-    {
-        ptr[i] = ntohl(ptr[i]);
-    }
 }
 
 static void _send_submit_data_cb(void *user_data, usbip_stage2_header *req_header,
                                   int32_t status, const void *data, int32_t data_length)
 {
     usbip_context_t *ctx = (usbip_context_t *)user_data;
-    usbip_send_stage2_submit_data_ctx(ctx, req_header, status, data, data_length);
+    usbip_send_stage2_submit_data(ctx, req_header, status, data, data_length);
 }
 
 static void _send_submit_cb(void *user_data, usbip_stage2_header *req_header,
                              int32_t status, int32_t data_length)
 {
     usbip_context_t *ctx = (usbip_context_t *)user_data;
-    usbip_send_stage2_submit_ctx(ctx, req_header, status, data_length);
+    usbip_send_stage2_submit(ctx, req_header, status, data_length);
 }
 
 static void _send_data_cb(void *user_data, const void *data, size_t len)
@@ -460,51 +389,43 @@ static void _send_data_cb(void *user_data, const void *data, size_t len)
 
 static int _handle_submit(usbip_context_t *ctx, usbip_stage2_header *header, uint32_t length)
 {
-    (void)length;
+    uint8_t ep = header->base.ep;
 
-    /* Send operations structure for usb_handle.c */
-    usb_send_ops_t send_ops = {
-        .user_data = ctx,
-        .send_submit_data = _send_submit_data_cb,
-        .send_submit = _send_submit_cb,
-        .send_data = _send_data_cb
-    };
-
-    switch (header->base.ep)
+    /* EP0 is a special case - control endpoint uses callback-based API */
+    if (ep == 0)
     {
-    case 0x00:
+        usb_send_ops_t send_ops = {
+            .user_data = ctx,
+            .send_submit_data = _send_submit_data_cb,
+            .send_submit = _send_submit_cb,
+            .send_data = _send_data_cb
+        };
         handleUSBControlRequest(header, &send_ops);
-        break;
+        return 0;
+    }
 
-    case 0x01:
-        if (header->base.direction == 0)
-        {
-            handle_dap_data_request(header, length);
-        }
-        else
-        {
-            handle_dap_data_response(header);
-        }
-        break;
+    /* Use endpoint handler dispatch for other endpoints */
+    const usbip_endpoint_handler_t *handler = usbip_endpoint_handler_get(ep);
 
-    case 0x02:
-        if (header->base.direction == 0)
-        {
-            usbip_send_stage2_submit(header, 0, 0);
-        }
-        else
-        {
-            handle_swo_trace_response(header);
-        }
-        break;
-
-    case 0x81:
-        printf("*** WARN! EP 81 DATA\r\n");
+    if (handler == NULL)
+    {
+        printf("*** WARN! UNKNOWN ENDPOINT: %d\r\n", (int)ep);
         return -1;
+    }
 
-    default:
-        printf("*** WARN! UNKNOWN ENDPOINT: %d\r\n", (int)header->base.ep);
-        return -1;
+    if (header->base.direction == USBIP_DIR_OUT)
+    {
+        if (handler->handle_out)
+        {
+            handler->handle_out(ctx, header, length);
+        }
+    }
+    else
+    {
+        if (handler->handle_in)
+        {
+            handler->handle_in(ctx, header);
+        }
     }
 
     return 0;
@@ -512,8 +433,16 @@ static int _handle_submit(usbip_context_t *ctx, usbip_stage2_header *header, uin
 
 static void _handle_unlink(usbip_context_t *ctx, usbip_stage2_header *header)
 {
-    printf("s2 handling cmd unlink...\r\n");
-    handle_dap_unlink();
+    uint8_t ep = header->base.ep;
+
+    printf("s2 handling cmd unlink for EP%d...\r\n", ep);
+
+    const usbip_endpoint_handler_t *handler = usbip_endpoint_handler_get(ep);
+    if (handler != NULL && handler->handle_unlink != NULL)
+    {
+        handler->handle_unlink();
+    }
+
     _send_stage2_unlink(ctx, header);
 }
 
@@ -524,6 +453,6 @@ static void _send_stage2_unlink(usbip_context_t *ctx, usbip_stage2_header *req_h
     memset(&(req_header->u.ret_unlink), 0, sizeof(usbip_stage2_header_ret_unlink));
     req_header->u.ret_unlink.status = -1;
 
-    _pack(req_header, sizeof(usbip_stage2_header));
+    usbip_swap_header(req_header, sizeof(usbip_stage2_header));
     usbip_context_send(ctx, req_header, sizeof(usbip_stage2_header));
 }

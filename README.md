@@ -7,7 +7,7 @@ ESP32-DAPLink is an open-source hardware debugger based on ESP32-S3, implementin
 - **DAPLink Online Debugging**: Supports both HID and WinUSB/Bulk modes for online debugging with Keil MDK, OpenOCD, and other debug tools
 - **CDC Serial Communication**: USB CDC serial communication for seamless data transfer between host and target device
 - **Web Serial Support**: Web browser-based serial communication via WebSocket, enabling remote monitoring and control
-- **Wireless Debugging**: WiFi-based wireless debugging through USBIP and elaphureLink protocols
+- **Wireless Debugging**: WiFi-based wireless debugging through USBIP(USB over IP) and elaphureLink protocols
 - **Offline Programming**: Standalone firmware programming with automatic Keil FLM algorithm parsing
 - **Remote Programming**: Web interface for remote firmware updates and device programming
 
@@ -18,18 +18,35 @@ ESP32-DAPLink/
 ├── components/
 │   ├── debug_probe/    # CMSIS-DAP implementation (DAP.c, SW_DP.c, JTAG_DP.c)
 │   ├── Program/        # Offline programming (flash algorithms, HEX/BIN parsing)
-│   ├── USBIP/          # USBIP protocol for networked debugging
+│   ├── USBIP/          # USBIP protocol definitions and USB handling
 │   ├── elaphureLink/   # elaphureLink protocol
 │   ├── kcp/            # KCP protocol for reliable transport
 │   └── util/           # Utilities (LED control)
 ├── main/
 │   ├── main.cpp        # Entry point, USB init, WiFi, task creation
-│   ├── cdc_uart.c      # UART bridge with dual output (USB/Web)
-│   ├── usb_cdc_handler.c  # USB CDC callbacks
-│   ├── web_handler.cpp    # WebSocket serial handler
-│   ├── web_server.c       # HTTP/WebSocket server
-│   ├── serial_manager.c   # Serial port state management
-│   ├── programmer.cpp     # Offline programming state machine
+│   ├── dap/            # DAP command handling
+│   │   ├── DAP_handle.c/.h    # DAP command processing
+│   ├── serial/         # Serial port management
+│   │   ├── cdc_uart.c/.h      # UART bridge implementation
+│   │   └── serial_manager.c/.h # USB/Web serial state management
+│   ├── usb/            # USB device handling
+│   │   ├── usb_desc.c/.h      # USB descriptors
+│   │   ├── usb_cdc_handler.c/.h # USB CDC callbacks
+│   │   └── msc_disk.c/.h      # Mass storage emulation
+│   ├── usbip/          # USBIP server implementation
+│   │   ├── usbip_server.c/.h  # USBIP state machine
+│   │   ├── usbip_service.c/.h # USBIP service entry point
+│   │   ├── usbip_context.c/.h # USBIP connection context
+│   │   └── transport/         # Transport abstraction layer
+│   │       ├── transport.c/.h       # Transport interface
+│   │       ├── transport_tcp.c/.h   # TCP socket transport
+│   │       ├── transport_netconn.c/.h # LwIP netconn transport
+│   │       └── transport_kcp.c/.h   # KCP reliable transport
+│   ├── web/            # Web server and handlers
+│   │   ├── web_server.c/.h     # HTTP/WebSocket server
+│   │   └── web_handler.cpp/.h  # WebSocket serial and programming handlers
+│   └── programmer/     # Offline/Online programming
+│       └── programmer.cpp/.h   # Programming state machine
 ├── algorithm/          # FLM flash algorithm files
 ├── html/               # Web interface files
 └── docs/               # Documentation
@@ -37,15 +54,17 @@ ESP32-DAPLink/
 
 ## Serial Port Management
 
-The `SerialManager` manages serial port state with priority-based switching:
+The `SerialManager` manages serial port state with priority-based switching. UART is always initialized, but data routing depends on connection state:
 
 | State | Description |
 |-------|-------------|
-| `SERIAL_STATE_IDLE` | No client connected, UART closed |
+| `SERIAL_STATE_IDLE` | No client connected, UART data discarded |
 | `SERIAL_STATE_USB` | USB CDC connected, UART data → USB |
 | `SERIAL_STATE_WEB` | Web client connected, UART data → WebSocket |
 
 Priority: USB > Web > Idle
+
+State transitions automatically notify web clients, enabling real-time status updates in the browser interface.
 
 ## Build
 
@@ -149,26 +168,22 @@ virtual void swj_sequence(uint32_t count, const uint8_t *data) = 0;
 virtual void set_target_reset(uint8_t asserted) = 0;
 ```
 
-## Code Style
+## USBIP Transport Layer
 
-See [docs/CODE_STYLE.md](docs/CODE_STYLE.md) for the complete style guide.
+The USBIP implementation supports multiple transport backends through an abstraction layer:
 
-Key points:
-- **Naming**: snake_case for functions/variables, PascalCase for classes
-- **Braces**: Allman style (opening brace on new line)
-- **Indentation**: 4 spaces, no tabs
-- **Headers**: Use `#pragma once`
-- **No global variables**: Use dependency injection
+| Transport | Description |
+|-----------|-------------|
+| `transport_tcp` | Standard TCP socket (default) |
+| `transport_netconn` | LwIP netconn API (lightweight) |
+| `transport_kcp` | KCP reliable UDP (experimental, for high-latency networks) |
 
-## Dependencies
+Configure the transport in `main/usbip/usbip_config.h`:
 
-Managed via ESP-IDF component manager:
-- `espressif/tinyusb`: TinyUSB stack
-- `espressif/esp_tinyusb`: ESP-IDF TinyUSB integration
-
-## License
-
-Apache-2.0 License. See [LICENSE](LICENSE) for details.
+```c
+#define USBIP_USE_TCP_NETCONN 0  // Use LwIP netconn
+#define USBIP_USE_KCP         0  // Use KCP protocol
+```
 
 ## Contributing
 
