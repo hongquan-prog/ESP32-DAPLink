@@ -7,6 +7,7 @@
  * Date           Author       Notes
  * 2023-9-8      lihongquan   add license declaration
  * 2026-3-17     refactor     Integrate SerialManager for serial port management
+ * 2026-3-27     refactor     Migrate to new usbip-server architecture
  */
 
 #include <stdint.h>
@@ -35,17 +36,11 @@
 #include "programmer/programmer.h"
 #include "protocol_examples_common.h"
 #include "serial/serial_manager.h"
-#include "usbip/usbip_service.h"
-#include "usbip/dap_handler.h"
-#include "usbip/swo_handler.h"
-#include "usbip/transport/transport_tcp.h"
-#include "usbip/transport/transport_netconn.h"
-#include "usbip/transport/transport_kcp.h"
+#include "usbip_server.h"
+#include "usbip_devmgr.h"
 
 static const char *TAG = "main";
 static httpd_handle_t http_server = NULL;
-
-extern "C" void DAP_Thread(void *pvParameters);
 
 extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
 {
@@ -192,16 +187,23 @@ extern "C" void app_main(void)
     cdc_uart_register_rx_handler(CDC_UART_WEB_HANDLER, web_send_to_clients, &http_server);
     ESP_LOGI(TAG, "USB initialization DONE");
 
-    // Specify the usbip server task with transport abstraction
-#if (USBIP_USE_KCP == 1)
-    xTaskCreate(usbip_service_task, "usbip_server", 4096, (void *)transport_kcp_get_ops(), 14, NULL);
-#elif (USBIP_USE_TCP_NETCONN == 1)
-    xTaskCreate(usbip_service_task, "usbip_server", 4096, (void *)transport_netconn_get_ops(), 14, NULL);
-#else
-    xTaskCreate(usbip_service_task, "usbip_server", 4096, (void *)transport_tcp_get_ops(), 14, NULL);
-#endif
+    /* Initialize USBIP Server - New Architecture */
+#ifdef CONFIG_USBIP_SERVER_ENABLED
+    ESP_LOGI(TAG, "Initializing USBIP server...");
 
-    // Initialize endpoint handlers
-    dap_handler_init();
-    swo_handler_init();
+    /* Initialize server on configured port */
+    if (usbip_server_init(CONFIG_USBIP_SERVER_PORT) == 0)
+    {
+        ESP_LOGI(TAG, "USBIP server listening on port %d", CONFIG_USBIP_SERVER_PORT);
+        /* Run server main loop (blocking) */
+        usbip_server_run();
+        usbip_server_cleanup();
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to initialize USBIP server");
+    }
+#else
+    ESP_LOGI(TAG, "USBIP server disabled in configuration");
+#endif
 }
