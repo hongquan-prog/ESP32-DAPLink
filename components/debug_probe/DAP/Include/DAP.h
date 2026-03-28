@@ -321,6 +321,7 @@
  extern uint32_t DAP_ExecuteCommand       (const uint8_t *request, uint8_t *response);
  
  extern void     DAP_Setup (void);
+ extern void     DAP_SetPacketSize (uint16_t size);
  
  // Configurable delay for clock generation
  #ifndef DELAY_SLOW_CYCLES

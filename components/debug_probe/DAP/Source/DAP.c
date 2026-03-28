@@ -44,6 +44,17 @@
  #endif
  
  
+ // Runtime configurable packet size (defaults to compile-time DAP_PACKET_SIZE)
+ static uint16_t dap_packet_size = DAP_PACKET_SIZE;
+ 
+ // Set packet size at runtime
+ void DAP_SetPacketSize(uint16_t size) {
+   if (size >= 64U && size <= 32768U) {
+     dap_packet_size = size;
+   }
+ }
+ 
+ 
  // Clock Macros
  #define MAX_SWJ_CLOCK(delay_cycles) \
    ((CPU_CLOCK/2U) / (IO_PORT_WRITE_CYCLES + delay_cycles))
@@ -166,8 +177,8 @@
  #endif
        break;
      case DAP_ID_PACKET_SIZE:
-       info[0] = (uint8_t)(DAP_PACKET_SIZE >> 0);
-       info[1] = (uint8_t)(DAP_PACKET_SIZE >> 8);
+       info[0] = (uint8_t)(dap_packet_size >> 0);
+       info[1] = (uint8_t)(dap_packet_size >> 8);
        length = 2U;
        break;
      case DAP_ID_PACKET_COUNT:
