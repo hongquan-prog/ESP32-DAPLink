@@ -28,6 +28,7 @@
 #include "usbip_control.h"
 #include "usbip_devmgr.h"
 #include "usbip_protocol.h"
+#include "usbip_server.h"
 
 LOG_MODULE_REGISTER(dap_v2, CONFIG_DAP_LOG_LEVEL);
 
@@ -38,6 +39,11 @@ LOG_MODULE_REGISTER(dap_v2, CONFIG_DAP_LOG_LEVEL);
 #define BULK_DAP_VID 0xFAED
 #define BULK_DAP_PID 0x4873
 #define BULK_DAP_PACKET_SIZE 512 /* High Speed Bulk packet size */
+
+/* Compile-time check: BULK_DAP_PACKET_SIZE must not exceed USBIP_URB_DATA_MAX_SIZE */
+#if BULK_DAP_PACKET_SIZE > USBIP_URB_DATA_MAX_SIZE
+#error "BULK_DAP_PACKET_SIZE exceeds USBIP_URB_DATA_MAX_SIZE. Please increase USBIP_URB_DATA_MAX_SIZE in include/usbip_server.h"
+#endif
 
 /*****************************************************************************
  * BOS Descriptor - Contains Microsoft OS 2.0 Platform Capability
@@ -208,7 +214,7 @@ static const struct dap_v2_config_desc dap_v2_cfg_desc = {
             .bDescriptorType = USB_DT_ENDPOINT,
             .bEndpointAddress = 0x01,
             .bmAttributes = 0x02, /* Bulk */
-            .wMaxPacketSize = 512,
+            .wMaxPacketSize = BULK_DAP_PACKET_SIZE,
             .bInterval = 0,
         },
     .dap_ep_in =
@@ -217,7 +223,7 @@ static const struct dap_v2_config_desc dap_v2_cfg_desc = {
             .bDescriptorType = USB_DT_ENDPOINT,
             .bEndpointAddress = 0x81,
             .bmAttributes = 0x02, /* Bulk */
-            .wMaxPacketSize = 512,
+            .wMaxPacketSize = BULK_DAP_PACKET_SIZE,
             .bInterval = 0,
         },
 };
@@ -285,27 +291,10 @@ static void vdap_v2_cleanup(struct usbip_device_driver* driver);
 
 static void dap_v2_process_command(const void* data, size_t len)
 {
-    uint8_t req_buf[BULK_DAP_PACKET_SIZE] = {0};
-    uint8_t resp_buf[BULK_DAP_PACKET_SIZE] = {0};
-    uint32_t resp_len;
-
-    if (len > BULK_DAP_PACKET_SIZE)
-    {
-        len = BULK_DAP_PACKET_SIZE;
-    }
-    memcpy(req_buf, data, len);
-    LOG_HEX_DBG("[CMD] %zu bytes:", req_buf, len, len);
-
-    resp_len = DAP_ProcessCommand(req_buf, resp_buf) & 0xFFFF;
-    if (resp_len > BULK_DAP_PACKET_SIZE)
-    {
-        resp_len = BULK_DAP_PACKET_SIZE;
-    }
-
-    memcpy(vdap_v2.response, resp_buf, resp_len);
-    vdap_v2.response_len = resp_len;
+    LOG_HEX_DBG("[CMD] %zu bytes:", (const uint8_t*)data, len, len);
+    vdap_v2.response_len = DAP_ProcessCommand((const uint8_t*)data, vdap_v2.response) & 0xFFFF;
     vdap_v2.response_pending = 1;
-    LOG_HEX_DBG("[RSP] %u bytes:", resp_buf, resp_len, resp_len);
+    LOG_HEX_DBG("[RSP] %zu bytes:", vdap_v2.response, vdap_v2.response_len, vdap_v2.response_len);
 }
 
 /*****************************************************************************
@@ -476,6 +465,7 @@ static int vdap_v2_handle_urb(struct usbip_device_driver* driver,
             break;
 
         default:
+            LOG_ERR("Unknown command: 0x%04x", urb_cmd->base.command);
             ret = -1;
             break;
     }
@@ -540,6 +530,8 @@ static int vdap_v2_export_device(struct usbip_device_driver* driver, const char*
     vdap_v2.exported = 1;
     vdap_v2.ctx = ctx;
     usbip_set_device_busy(busid);
+    /* Set DAP packet size for this device */
+    DAP_SetPacketSize(BULK_DAP_PACKET_SIZE);
 
     LOG_INF("Exported: %s", busid);
     return 0;
