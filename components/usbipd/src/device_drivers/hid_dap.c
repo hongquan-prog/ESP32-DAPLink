@@ -36,7 +36,7 @@ LOG_MODULE_REGISTER(dap, CONFIG_DAP_LOG_LEVEL);
 
 #define DAP_VID 0xFAED
 #define DAP_PID 0x4873
-#define DAP_REPORT_SIZE 64
+#define HID_DAP_PACKET_SIZE 64
 
 /**************************************************************************
  * BOS Descriptor - Contains Microsoft OS 2.0 Platform Capability
@@ -110,7 +110,7 @@ static const uint8_t dap_report_desc[] = {
     0x15, 0x00,            /* Logical Minimum (0) */
     0x26, 0xFF, 0x00,      /* Logical Maximum (255) */
     0x75, 0x08,            /* Report Size (8 bits) */
-    0x95, DAP_REPORT_SIZE, /* Report Count (64 bytes) */
+    0x95, HID_DAP_PACKET_SIZE, /* Report Count (64 bytes) */
     0x91, 0x02,            /* Output (Data, Var, Abs) */
 
     /* --- Input Report (Device -> Host) --- */
@@ -118,7 +118,7 @@ static const uint8_t dap_report_desc[] = {
     0x15, 0x00,            /* Logical Minimum (0) */
     0x26, 0xFF, 0x00,      /* Logical Maximum (255) */
     0x75, 0x08,            /* Report Size (8 bits) */
-    0x95, DAP_REPORT_SIZE, /* Report Count (64 bytes) */
+    0x95, HID_DAP_PACKET_SIZE, /* Report Count (64 bytes) */
     0x81, 0x02,            /* Input (Data, Var, Abs) */
 
     /* End Collection */
@@ -194,7 +194,7 @@ static const struct dap_config_desc dap_cfg_desc = {
             .bDescriptorType = USB_DT_ENDPOINT,
             .bEndpointAddress = 0x01, /* EP1 OUT */
             .bmAttributes = USB_ENDPOINT_XFER_INT,
-            .wMaxPacketSize = DAP_REPORT_SIZE,
+            .wMaxPacketSize = HID_DAP_PACKET_SIZE,
             .bInterval = 1,
         },
     .ep_in =
@@ -203,7 +203,7 @@ static const struct dap_config_desc dap_cfg_desc = {
             .bDescriptorType = USB_DT_ENDPOINT,
             .bEndpointAddress = 0x81, /* EP1 IN */
             .bmAttributes = USB_ENDPOINT_XFER_INT,
-            .wMaxPacketSize = DAP_REPORT_SIZE,
+            .wMaxPacketSize = HID_DAP_PACKET_SIZE,
             .bInterval = 1,
         },
 };
@@ -240,7 +240,7 @@ struct virtual_dap
     struct usbip_conn_ctx* ctx;
 
     /* DAP Response Buffer */
-    uint8_t response[DAP_REPORT_SIZE];
+    uint8_t response[HID_DAP_PACKET_SIZE];
     size_t response_len;
     int response_pending;
     int response_valid;
@@ -290,10 +290,6 @@ static const struct hid_device_ops dap_hid_ops = {
  */
 static int dap_handle_data(uint8_t report_id, const void* data, size_t len, void* user_data)
 {
-    uint8_t req_buf[DAP_PACKET_SIZE] = {0};
-    uint8_t resp_buf[DAP_PACKET_SIZE] = {0};
-    uint32_t resp_len;
-
     (void)report_id;
     (void)user_data;
 
@@ -302,25 +298,10 @@ static int dap_handle_data(uint8_t report_id, const void* data, size_t len, void
         return -1;
     }
 
-    if (len > DAP_REPORT_SIZE)
-    {
-        len = DAP_REPORT_SIZE;
-    }
-    memcpy(req_buf, data, len);
-
-    LOG_HEX_DBG("[CMD] %zu bytes:", req_buf, len, len);
-
-    resp_len = DAP_ProcessCommand(req_buf, resp_buf) & 0xFFFF;
-    if (resp_len > DAP_REPORT_SIZE)
-    {
-        resp_len = DAP_REPORT_SIZE;
-    }
-
-    memcpy(vdap.response, resp_buf, resp_len);
-    vdap.response_len = resp_len;
+    LOG_HEX_DBG("[CMD] %zu bytes:", (const uint8_t*)data, len, len);
+    vdap.response_len = DAP_ProcessCommand((const uint8_t*)data, vdap.response) & 0xFFFF;
     vdap.response_pending = 1;
-
-    LOG_HEX_DBG("[RSP] %u bytes: ", vdap.response, resp_len, resp_len);
+    LOG_HEX_DBG("[RSP] %u bytes: ", vdap.response, vdap.response_len, vdap.response_len);
 
     return 0;
 }
@@ -334,7 +315,7 @@ static int dap_get_report(uint8_t report_type, uint8_t report_id, void* data, si
                           void* user_data)
 {
     size_t copy_len;
-    const size_t report_size = DAP_REPORT_SIZE;
+    const size_t report_size = HID_DAP_PACKET_SIZE;
 
     (void)report_type;
     (void)report_id;
@@ -577,6 +558,8 @@ static int vdap_export_device(struct usbip_device_driver* driver, const char* bu
     vdap.exported = 1;
     vdap.ctx = ctx;
     usbip_set_device_busy(busid);
+    /* Set DAP packet size for this device */
+    DAP_SetPacketSize(HID_DAP_PACKET_SIZE);
 
     LOG_INF("Exported: %s", busid);
     return 0;
@@ -635,7 +618,7 @@ static int vdap_init(struct usbip_device_driver* driver)
     vdap.ctrl_ctx.num_configs = 1;
     vdap.ctrl_ctx.bos_desc = dap_bos_desc;
     vdap.ctrl_ctx.bos_desc_len = sizeof(dap_bos_desc);
-    hid_init_ctx(&vdap.hid_ctx, &dap_hid_ops, DAP_REPORT_SIZE, &vdap);
+    hid_init_ctx(&vdap.hid_ctx, &dap_hid_ops, HID_DAP_PACKET_SIZE, &vdap);
     DAP_Setup();
 
     LOG_DBG("Init (VID=%04x PID=%04x)", DAP_VID, DAP_PID);
