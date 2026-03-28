@@ -22,12 +22,8 @@ extern "C" {
 /*****************************************************************************
  * Server Configuration
  *****************************************************************************/
-
-#define USBIP_DEFAULT_PORT 3240
-#define USBIP_MAX_CLIENTS 16
-#define USBIP_MAX_DRIVERS 8
 #define USBIP_URB_QUEUE_SIZE 8      /* URB queue slots */
-#define USBIP_URB_DATA_MAX_SIZE 256 /* Max data size per URB */
+#define USBIP_URB_DATA_MAX_SIZE 512 /* Max data size per URB */
 
 /*****************************************************************************
  * Server Main Interface
