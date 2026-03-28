@@ -6,8 +6,6 @@ set(DAP_sources
 )
 
 set(debug_probe_sources
-    "swd.c"
-    "esp_usb_jtag.c"
     "debug_gpio.c"
 )
 
