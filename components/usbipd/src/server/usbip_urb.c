@@ -258,7 +258,7 @@ static void* usbip_urb_processor_thread(void* arg)
 
         if (ret < 0)
         {
-            LOG_DBG("URB handling error");
+            LOG_ERR("URB handling error");
             osal_free(data_out);
             break;
         }
@@ -277,7 +277,7 @@ static void* usbip_urb_processor_thread(void* arg)
         osal_free(data_out);
     }
 
-    LOG_DBG("URB processor exiting for %s", ctx->busid);
+    LOG_INF("URB processor exiting for %s", ctx->busid);
     osal_thread_delete(&ctx->processor_thread);
 
     return NULL;
@@ -370,7 +370,7 @@ int usbip_urb_loop(struct usbip_conn_ctx* ctx, struct usbip_device_driver* drive
     usbip_urb_queue_destroy(&g_urb_queue);
     driver->unexport_device(driver, busid);
 
-    LOG_DBG("Exited URB loop for %s", busid);
+    LOG_INF("Exited URB loop for %s", busid);
 
     return 0;
 }
