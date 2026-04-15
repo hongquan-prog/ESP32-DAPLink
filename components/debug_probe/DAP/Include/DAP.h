@@ -322,6 +322,7 @@
  
  extern void     DAP_Setup (void);
  extern void     DAP_SetPacketSize (uint16_t size);
+ extern uint16_t DAP_GetPacketSize (void);
  
  // Configurable delay for clock generation
  #ifndef DELAY_SLOW_CYCLES

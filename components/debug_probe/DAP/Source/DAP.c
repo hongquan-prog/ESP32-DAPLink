@@ -53,7 +53,10 @@
      dap_packet_size = size;
    }
  }
- 
+
+ uint16_t DAP_GetPacketSize(void) {
+   return dap_packet_size;
+ }
  
  // Clock Macros
  #define MAX_SWJ_CLOCK(delay_cycles) \

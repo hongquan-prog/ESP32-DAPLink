@@ -1,6 +1,5 @@
 set(COMPONENT_ADD_INCLUDEDIRS 
-    "include"
-    "include/hal"
+    "usbipd/components/usbipd/include"
 )
 
 set(COMPONENT_SRCS 
@@ -11,8 +10,7 @@ set(COMPONENT_SRCS
     "usbipd/components/usbipd/src/server/usbip_pack.c"
     "usbipd/components/usbipd/src/server/usbip_server.c"
     "usbipd/components/usbipd/src/server/usbip_urb.c"
-    
-
+    "usbipd/components/usbipd/src/server/usbipd.c"
     # Device base classes
     "usbipd/components/usbipd/src/device/usbip_hid.c"
     # HAL
@@ -40,6 +38,10 @@ set(COMPONENT_PRIV_REQUIRES
 )
 
 register_component()
+
+target_include_directories(${COMPONENT_LIB} PRIVATE
+    "usbipd/components/usbipd/priv"
+)
 
 # Force linker to keep USBIP constructor functions
 # These functions are marked with __attribute__((constructor)) but may be stripped by linker

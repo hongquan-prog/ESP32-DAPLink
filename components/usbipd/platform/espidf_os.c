@@ -358,4 +358,7 @@ static osal_ops_t espidf_ops = {
 /**
  * Auto-register ESP-IDF implementation
  */
-OSAL_REGISTER(espidf, espidf_ops);
+__attribute__((section(".usbip.init"), used)) void default_os_register(void)
+{
+    osal_register("espidf", &espidf_ops);
+}

@@ -38,6 +38,8 @@ struct tcp_conn_priv
     int fd; /* Connection socket */
 };
 
+void transport_register(const char* name, struct usbip_transport* trans);
+
 /*****************************************************************************
  * ESP-IDF Transport Implementation
  *****************************************************************************/
@@ -247,4 +249,7 @@ static struct usbip_transport trans = {.priv = &priv,
                                        .close = tcp_close,
                                        .destroy = tcp_destroy};
 
-TRANSPORT_REGISTER(espidf, trans);
+__attribute__((section(".usbip.init"), used)) void default_transport_register(void)
+{
+    transport_register("espidf", &trans);
+}

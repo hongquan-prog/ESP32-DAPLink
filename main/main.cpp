@@ -36,8 +36,7 @@
 #include "programmer/programmer.h"
 #include "protocol_examples_common.h"
 #include "serial/serial_manager.h"
-#include "usbip_server.h"
-#include "usbip_devmgr.h"
+#include "usbipd.h"
 
 static const char *TAG = "main";
 static httpd_handle_t http_server = NULL;
@@ -189,20 +188,7 @@ extern "C" void app_main(void)
 
     /* Initialize USBIP Server - New Architecture */
 #ifdef CONFIG_USBIP_SERVER_ENABLED
-    ESP_LOGI(TAG, "Initializing USBIP server...");
-
-    /* Initialize server on configured port */
-    if (usbip_server_init(CONFIG_USBIP_SERVER_PORT) == 0)
-    {
-        ESP_LOGI(TAG, "USBIP server listening on port %d", CONFIG_USBIP_SERVER_PORT);
-        /* Run server main loop (blocking) */
-        usbip_server_run();
-        usbip_server_cleanup();
-    }
-    else
-    {
-        ESP_LOGE(TAG, "Failed to initialize USBIP server");
-    }
+    usbipd_init(CONFIG_USBIP_SERVER_PORT);
 #else
     ESP_LOGI(TAG, "USBIP server disabled in configuration");
 #endif
