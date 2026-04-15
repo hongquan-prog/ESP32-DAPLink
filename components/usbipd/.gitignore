@@ -1,0 +1,11 @@
+usbipd/components/debug_probe/*
+usbipd/components/gdb_server/*
+usbipd/components/Program/*
+usbipd/scripts/*
+usbipd/src/*
+usbipd/.clang-format
+usbipd/.gitignore
+usbipd/.editorconfig
+usbipd/CMakeLists.txt
+usbipd/Kconfig
+usbipd/README.md

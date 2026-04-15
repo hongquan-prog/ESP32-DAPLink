@@ -1,0 +1,3 @@
+[submodule "components/usbipd/usbipd"]
+	path = components/usbipd/usbipd
+	url = https://github.com/hongquan-prog/usbipd.git

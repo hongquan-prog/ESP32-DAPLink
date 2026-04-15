@@ -43,7 +43,7 @@ static void espidf_free(void* ptr)
  * ESP-IDF Mutex Implementation
  *****************************************************************************/
 
-static int espidf_mutex_init(void* handle)
+static int espidf_mutex_init(void** handle)
 {
     SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
 
@@ -52,14 +52,14 @@ static int espidf_mutex_init(void* handle)
         return OSAL_ERROR;
     }
 
-    *(SemaphoreHandle_t*)handle = mutex;
+    *handle = (void*)mutex;
 
     return OSAL_OK;
 }
 
 static int espidf_mutex_lock(void* handle)
 {
-    SemaphoreHandle_t mutex = *(SemaphoreHandle_t*)handle;
+    SemaphoreHandle_t mutex = (SemaphoreHandle_t)handle;
 
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
     {
@@ -71,7 +71,7 @@ static int espidf_mutex_lock(void* handle)
 
 static int espidf_mutex_unlock(void* handle)
 {
-    SemaphoreHandle_t mutex = *(SemaphoreHandle_t*)handle;
+    SemaphoreHandle_t mutex = (SemaphoreHandle_t)handle;
 
     if (xSemaphoreGive(mutex) == pdTRUE)
     {
@@ -83,12 +83,11 @@ static int espidf_mutex_unlock(void* handle)
 
 static void espidf_mutex_destroy(void* handle)
 {
-    SemaphoreHandle_t mutex = *(SemaphoreHandle_t*)handle;
+    SemaphoreHandle_t mutex = (SemaphoreHandle_t)handle;
 
     if (mutex != NULL)
     {
         vSemaphoreDelete(mutex);
-        *(SemaphoreHandle_t*)handle = NULL;
     }
 }
 
@@ -103,9 +102,9 @@ struct espidf_cond
     volatile int signaled;
 };
 
-static int espidf_cond_init(void* handle)
+static int espidf_cond_init(void** handle)
 {
-    struct espidf_cond* cond = osal_malloc(sizeof(struct espidf_cond));
+    struct espidf_cond* cond = malloc(sizeof(struct espidf_cond));
 
     if (cond == NULL)
     {
@@ -116,21 +115,21 @@ static int espidf_cond_init(void* handle)
 
     if (cond->event_group == NULL)
     {
-        osal_free(cond);
+        free(cond);
 
         return OSAL_ERROR;
     }
 
     cond->signaled = 0;
-    *(struct espidf_cond**)handle = cond;
+    *handle = (void*)cond;
 
     return OSAL_OK;
 }
 
 static int espidf_cond_wait(void* cond_handle, void* mutex_handle)
 {
-    struct espidf_cond* cond = *(struct espidf_cond**)cond_handle;
-    SemaphoreHandle_t mutex = *(SemaphoreHandle_t*)mutex_handle;
+    struct espidf_cond* cond = (struct espidf_cond*)cond_handle;
+    SemaphoreHandle_t mutex = (SemaphoreHandle_t)mutex_handle;
 
     /* Clear the event bit before waiting */
     xEventGroupClearBits(cond->event_group, BIT0);
@@ -149,8 +148,8 @@ static int espidf_cond_wait(void* cond_handle, void* mutex_handle)
 
 static int espidf_cond_timedwait(void* cond_handle, void* mutex_handle, uint32_t timeout_ms)
 {
-    struct espidf_cond* cond = *(struct espidf_cond**)cond_handle;
-    SemaphoreHandle_t mutex = *(SemaphoreHandle_t*)mutex_handle;
+    struct espidf_cond* cond = (struct espidf_cond*)cond_handle;
+    SemaphoreHandle_t mutex = (SemaphoreHandle_t)mutex_handle;
     TickType_t ticks = pdMS_TO_TICKS(timeout_ms);
     EventBits_t bits;
 
@@ -176,7 +175,7 @@ static int espidf_cond_timedwait(void* cond_handle, void* mutex_handle, uint32_t
 
 static int espidf_cond_signal(void* cond_handle)
 {
-    struct espidf_cond* cond = *(struct espidf_cond**)cond_handle;
+    struct espidf_cond* cond = (struct espidf_cond*)cond_handle;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
     if (xPortInIsrContext())
@@ -194,7 +193,7 @@ static int espidf_cond_signal(void* cond_handle)
 
 static int espidf_cond_broadcast(void* cond_handle)
 {
-    struct espidf_cond* cond = *(struct espidf_cond**)cond_handle;
+    struct espidf_cond* cond = (struct espidf_cond*)cond_handle;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
     if (xPortInIsrContext())
@@ -212,7 +211,7 @@ static int espidf_cond_broadcast(void* cond_handle)
 
 static void espidf_cond_destroy(void* handle)
 {
-    struct espidf_cond* cond = *(struct espidf_cond**)handle;
+    struct espidf_cond* cond = (struct espidf_cond*)handle;
 
     if (cond != NULL)
     {
@@ -221,8 +220,7 @@ static void espidf_cond_destroy(void* handle)
             vEventGroupDelete(cond->event_group);
         }
 
-        osal_free(cond);
-        *(struct espidf_cond**)handle = NULL;
+        free(cond);
     }
 }
 
@@ -230,10 +228,10 @@ static void espidf_cond_destroy(void* handle)
  * ESP-IDF Thread Implementation
  *****************************************************************************/
 
-static int espidf_thread_create(void* handle, void* (*func)(void*), void* arg, size_t stack_size,
+static int espidf_thread_create(void** handle, void* (*func)(void*), void* arg, size_t stack_size,
                                 int priority)
 {
-    TaskHandle_t* task_handle = (TaskHandle_t*)handle;
+    TaskHandle_t task_handle;
     BaseType_t ret;
     int task_priority;
 
@@ -262,19 +260,20 @@ static int espidf_thread_create(void* handle, void* (*func)(void*), void* arg, s
     /* Note: xTaskCreate internal allocates TCB and stack automatically.
      * We cast func to TaskFunction_t - the return value is ignored by FreeRTOS */
     ret = xTaskCreate((TaskFunction_t)func, "usbip_task", stack_size / sizeof(StackType_t), arg,
-                      task_priority, task_handle);
+                      task_priority, &task_handle);
 
     if (ret != pdPASS)
     {
         return OSAL_ERROR;
     }
 
+    *handle = (void*)task_handle;
     return OSAL_OK;
 }
 
 static int espidf_thread_join(void* handle)
 {
-    TaskHandle_t task = *(TaskHandle_t*)handle;
+    TaskHandle_t task = (TaskHandle_t)handle;
 
     /* FreeRTOS doesn't have a direct join equivalent.
      * We need to poll for task existence or use a notification mechanism.
@@ -298,7 +297,7 @@ static int espidf_thread_detach(void* handle)
 
 static int espidf_thread_delete(void* handle)
 {
-    TaskHandle_t task = *(TaskHandle_t*)handle;
+    TaskHandle_t task = (TaskHandle_t)handle;
 
     vTaskDelete(task);
 
