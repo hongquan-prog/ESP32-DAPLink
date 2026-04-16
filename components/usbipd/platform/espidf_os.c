@@ -100,6 +100,8 @@ struct espidf_cond
 {
     EventGroupHandle_t event_group;
     volatile int signaled;
+    volatile int nwaiters;
+    SemaphoreHandle_t lock;
 };
 
 static int espidf_cond_init(void** handle)
@@ -120,7 +122,17 @@ static int espidf_cond_init(void** handle)
         return OSAL_ERROR;
     }
 
+    cond->lock = xSemaphoreCreateMutex();
+
+    if (cond->lock == NULL)
+    {
+        vEventGroupDelete(cond->event_group);
+        free(cond);
+        return OSAL_ERROR;
+    }
+
     cond->signaled = 0;
+    cond->nwaiters = 0;
     *handle = (void*)cond;
 
     return OSAL_OK;
@@ -131,19 +143,34 @@ static int espidf_cond_wait(void* cond_handle, void* mutex_handle)
     struct espidf_cond* cond = (struct espidf_cond*)cond_handle;
     SemaphoreHandle_t mutex = (SemaphoreHandle_t)mutex_handle;
 
-    /* Clear the event bit before waiting */
-    xEventGroupClearBits(cond->event_group, BIT0);
+    while (1)
+    {
+        xSemaphoreTake(cond->lock, portMAX_DELAY);
+        cond->nwaiters++;
+        if (cond->signaled > 0)
+        {
+            cond->signaled--;
+            cond->nwaiters--;
+            xSemaphoreGive(cond->lock);
+            return OSAL_OK;
+        }
+        xSemaphoreGive(cond->lock);
 
-    /* Release mutex and wait for the event */
-    xSemaphoreGive(mutex);
+        /* Release mutex and wait for the event */
+        xSemaphoreGive(mutex);
 
-    /* Wait for the signal */
-    xEventGroupWaitBits(cond->event_group, BIT0, pdTRUE, pdFALSE, portMAX_DELAY);
+        /* Wait for the signal. xClearOnExit (pdTRUE) clears the bit upon return,
+         * so there is no need to manually ClearBits before waiting.
+         * The previous ClearBits call created a lost-wakeup window. */
+        xEventGroupWaitBits(cond->event_group, BIT0, pdTRUE, pdFALSE, portMAX_DELAY);
 
-    /* Re-acquire mutex */
-    xSemaphoreTake(mutex, portMAX_DELAY);
+        /* Re-acquire mutex */
+        xSemaphoreTake(mutex, portMAX_DELAY);
 
-    return OSAL_OK;
+        xSemaphoreTake(cond->lock, portMAX_DELAY);
+        cond->nwaiters--;
+        xSemaphoreGive(cond->lock);
+    }
 }
 
 static int espidf_cond_timedwait(void* cond_handle, void* mutex_handle, uint32_t timeout_ms)
@@ -153,30 +180,49 @@ static int espidf_cond_timedwait(void* cond_handle, void* mutex_handle, uint32_t
     TickType_t ticks = pdMS_TO_TICKS(timeout_ms);
     EventBits_t bits;
 
-    /* Clear the event bit before waiting */
-    xEventGroupClearBits(cond->event_group, BIT0);
-
-    /* Release mutex and wait for the event */
-    xSemaphoreGive(mutex);
-
-    /* Wait for the signal with timeout */
-    bits = xEventGroupWaitBits(cond->event_group, BIT0, pdTRUE, pdFALSE, ticks);
-
-    /* Re-acquire mutex */
-    xSemaphoreTake(mutex, portMAX_DELAY);
-
-    if ((bits & BIT0) == 0)
+    while (1)
     {
-        return OSAL_TIMEOUT;
-    }
+        xSemaphoreTake(cond->lock, portMAX_DELAY);
+        cond->nwaiters++;
+        if (cond->signaled > 0)
+        {
+            cond->signaled--;
+            cond->nwaiters--;
+            xSemaphoreGive(cond->lock);
+            return OSAL_OK;
+        }
+        xSemaphoreGive(cond->lock);
 
-    return OSAL_OK;
+        /* Release mutex and wait for the event */
+        xSemaphoreGive(mutex);
+
+        /* Wait for the signal with timeout. xClearOnExit (pdTRUE) clears the bit
+         * upon return, removing the lost-wakeup window caused by ClearBits. */
+        bits = xEventGroupWaitBits(cond->event_group, BIT0, pdTRUE, pdFALSE, ticks);
+
+        /* Re-acquire mutex */
+        xSemaphoreTake(mutex, portMAX_DELAY);
+
+        xSemaphoreTake(cond->lock, portMAX_DELAY);
+        cond->nwaiters--;
+        xSemaphoreGive(cond->lock);
+
+        if ((bits & BIT0) == 0)
+        {
+            return OSAL_TIMEOUT;
+        }
+        /* Loop back to try consume a signal if bit was set */
+    }
 }
 
 static int espidf_cond_signal(void* cond_handle)
 {
     struct espidf_cond* cond = (struct espidf_cond*)cond_handle;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    xSemaphoreTake(cond->lock, portMAX_DELAY);
+    cond->signaled++;
+    xSemaphoreGive(cond->lock);
 
     if (xPortInIsrContext())
     {
@@ -195,6 +241,10 @@ static int espidf_cond_broadcast(void* cond_handle)
 {
     struct espidf_cond* cond = (struct espidf_cond*)cond_handle;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    xSemaphoreTake(cond->lock, portMAX_DELAY);
+    cond->signaled = cond->nwaiters;
+    xSemaphoreGive(cond->lock);
 
     if (xPortInIsrContext())
     {
@@ -218,6 +268,11 @@ static void espidf_cond_destroy(void* handle)
         if (cond->event_group != NULL)
         {
             vEventGroupDelete(cond->event_group);
+        }
+
+        if (cond->lock != NULL)
+        {
+            vSemaphoreDelete(cond->lock);
         }
 
         free(cond);
@@ -286,6 +341,12 @@ static int espidf_thread_join(void* handle)
     return OSAL_OK;
 }
 
+static int espidf_thread_is_self(void* handle)
+{
+    TaskHandle_t task = (TaskHandle_t)handle;
+    return (task == xTaskGetCurrentTaskHandle()) ? 1 : 0;
+}
+
 static int espidf_thread_detach(void* handle)
 {
     /* In FreeRTOS, tasks are automatically cleaned up when they exit
@@ -340,6 +401,7 @@ static osal_ops_t espidf_ops = {
     /* Thread */
     .thread_create = espidf_thread_create,
     .thread_join = espidf_thread_join,
+    .thread_is_self = espidf_thread_is_self,
     .thread_detach = espidf_thread_detach,
     .thread_delete = espidf_thread_delete,
 

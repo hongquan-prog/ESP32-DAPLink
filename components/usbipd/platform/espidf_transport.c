@@ -224,6 +224,17 @@ static void tcp_close(struct usbip_conn_ctx* ctx)
     }
 }
 
+static void tcp_stop(struct usbip_transport* trans)
+{
+    struct tcp_transport_priv* priv = trans->priv;
+
+    if (priv && priv->fd >= 0)
+    {
+        close(priv->fd);
+        priv->fd = -1;
+    }
+}
+
 static void tcp_destroy(struct usbip_transport* trans)
 {
     struct tcp_transport_priv* priv = trans->priv;
@@ -233,6 +244,7 @@ static void tcp_destroy(struct usbip_transport* trans)
         if (priv->fd >= 0)
         {
             close(priv->fd);
+            priv->fd = -1;
         }
     }
 }
@@ -247,6 +259,7 @@ static struct usbip_transport trans = {.priv = &priv,
                                        .recv = tcp_recv,
                                        .send = tcp_send,
                                        .close = tcp_close,
+                                       .stop = tcp_stop,
                                        .destroy = tcp_destroy};
 
 __attribute__((section(".usbip.init"), used)) void default_transport_register(void)
