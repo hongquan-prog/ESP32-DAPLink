@@ -34,8 +34,8 @@
 #include "esp_http_server.h"
 #include "web/web_server.h"
 #include "programmer/programmer.h"
-#include "protocol_examples_common.h"
 #include "serial/serial_manager.h"
+#include "wifi.h"
 #include "usbipd.h"
 
 static const char *TAG = "main";
@@ -119,14 +119,24 @@ extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_r
     tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
 }
 
-static void disconnect_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+static void event_handler(void *arg, esp_event_base_t event_base,
+                           int32_t event_id, void *event_data)
 {
-    web_server_stop((httpd_handle_t *)arg);
-}
+    ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
 
-static void connect_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
-{
-    web_server_init((httpd_handle_t *)arg);
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
+    {
+        esp_wifi_connect();
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+    {
+        esp_wifi_connect();
+        ESP_LOGI(TAG, "retry to connect to the AP");
+    }
+    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+    {
+        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+    }
 }
 
 extern "C" void app_main(void)
@@ -136,9 +146,17 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, connect_handler, &http_server));
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, disconnect_handler, &http_server));
-    ESP_ERROR_CHECK(example_connect());
+
+    if (wifi_config_exists())
+    {
+        ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, event_handler, &http_server));
+        ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, event_handler, &http_server));
+        wifi_connect_sta();
+    }
+    else
+    {
+        wifi_init_softap();
+    }
 
     tinyusb_config_t tusb_cfg =
     {
@@ -162,6 +180,7 @@ extern "C" void app_main(void)
         .callback_line_coding_changed = usb_cdc_set_line_codinig
     };
 
+    web_server_init(&http_server);
     DAP_Setup();
 
     ESP_LOGI(TAG, "USB initialization");

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi 设置 - ESP32 DAPLink</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+            min-height: 100vh;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px 20px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #00f5ff, #7b2cbf, #ff006e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .form-card {
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 245, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 245, 255, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: rgba(0, 245, 255, 0.8);
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 245, 255, 0.2);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: rgba(0, 245, 255, 0.5);
+            box-shadow: 0 0 15px rgba(0, 245, 255, 0.2);
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-reboot {
+            width: 100%;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, rgba(0, 245, 255, 0.2), rgba(123, 44, 191, 0.2));
+            border: 1px solid rgba(0, 245, 255, 0.3);
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 245, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-reboot::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-reboot:hover::before {
+            left: 100%;
+        }
+
+        .btn-reboot:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0, 245, 255, 0.5);
+            box-shadow: 0 12px 40px rgba(0, 245, 255, 0.2);
+        }
+
+        .btn-reboot:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .message.success {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            color: #00ff88;
+        }
+
+        .message.error {
+            background: rgba(255, 0, 110, 0.1);
+            border: 1px solid rgba(255, 0, 110, 0.3);
+            color: #ff006e;
+        }
+
+        .back-link {
+            margin-top: 20px;
+            color: rgba(0, 245, 255, 0.6);
+            text-decoration: none;
+            font-size: 0.9em;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: rgba(0, 245, 255, 1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>⚙️ WiFi 设置</h1>
+        <div class="form-card">
+            <div class="form-group">
+                <label for="ssid">WiFi 名称 (SSID)</label>
+                <input type="text" id="ssid" placeholder="请输入 WiFi 名称" maxlength="31">
+            </div>
+            <div class="form-group">
+                <label for="password">密码 (Password)</label>
+                <input type="password" id="password" placeholder="请输入密码（可为空）" maxlength="63">
+            </div>
+            <button class="btn-reboot" id="btn-save" onclick="saveConfig()">保存并重启</button>
+            <div class="message" id="message"></div>
+        </div>
+        <a class="back-link" href="/">返回首页</a>
+    </div>
+
+    <script>
+        function showMessage(text, type) {
+            var msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = 'message ' + type;
+            msg.style.display = 'block';
+        }
+
+        function saveConfig() {
+            var ssid = document.getElementById('ssid').value.trim();
+            var password = document.getElementById('password').value;
+            var btn = document.getElementById('btn-save');
+
+            if (!ssid) {
+                showMessage('请输入 WiFi 名称', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/wifi-set', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    showMessage('配置已保存，设备正在重启...', 'success');
+                    btn.textContent = '重启中...';
+                } else {
+                    showMessage('保存失败: ' + xhr.responseText, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '保存并重启';
+                }
+            };
+
+            xhr.onerror = function() {
+                showMessage('请求失败，请检查网络', 'error');
+                btn.disabled = false;
+                btn.textContent = '保存并重启';
+            };
+
+            xhr.send(JSON.stringify({
+                ssid: ssid,
+                password: password
+            }));
+        }
+    </script>
+</body>
+
+</html>

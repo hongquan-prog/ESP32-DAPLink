@@ -95,10 +95,38 @@
             background: linear-gradient(135deg, rgba(0, 245, 255, 0.2), rgba(123, 44, 191, 0.2));
             border-color: rgba(0, 245, 255, 0.3);
         }
+
+        .header {
+            display: flex;
+            justify-content: flex-end;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+
+        .settings-btn {
+            padding: 10px 20px;
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 245, 255, 0.1);
+            border-radius: 10px;
+            text-decoration: none;
+            color: rgba(0, 245, 255, 0.7);
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .settings-btn:hover {
+            border-color: rgba(0, 245, 255, 0.5);
+            color: rgba(0, 245, 255, 1);
+        }
     </style>
 </head>
 
 <body>
+    <div class="header">
+        <a class="settings-btn" href="/settings">⚙️ 设置</a>
+    </div>
     <div class="container">
         <h1>⚡ ESP32 DAPLink</h1>
         <div class="nav-grid">

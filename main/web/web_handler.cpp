@@ -22,6 +22,9 @@
 #include "esp_netif.h"
 #include "hex_program.h"
 #include "serial/serial_manager.h"
+#include "wifi.h"
+#include "nvs_flash.h"
+#include "esp_system.h"
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -30,7 +33,7 @@
 #include <iomanip>
 
 #define TAG "web_handler"
-#define WEB_RESOURCE_NUM 5
+#define WEB_RESOURCE_NUM 6
 #define IS_FILE_EXT(filename, ext) (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 typedef struct
@@ -50,13 +53,16 @@ extern const uint8_t upgrade_html_start[] asm("_binary_upgrade_html_start");
 extern const uint8_t upgrade_html_end[] asm("_binary_upgrade_html_end");
 extern const uint8_t favicon_ico_start[] asm("_binary_favicon_ico_start");
 extern const uint8_t favicon_ico_end[] asm("_binary_favicon_ico_end");
+extern const uint8_t config_html_start[] asm("_binary_settings_html_start");
+extern const uint8_t config_html_end[] asm("_binary_settings_html_end");
 
 web_resource_map_t s_resource_map[WEB_RESOURCE_NUM] = {
     {"/data/httpd/root.html", root_html_start, root_html_end},
     {"/data/httpd/favicon.ico", favicon_ico_start, favicon_ico_end},
     {"/data/httpd/program.html", program_html_start, program_html_end},
     {"/data/httpd/webserial.html", webserial_html_start, webserial_html_end},
-    {"/data/httpd/upgrade.html", upgrade_html_start, upgrade_html_end}};
+    {"/data/httpd/upgrade.html", upgrade_html_start, upgrade_html_end},
+    {"/data/httpd/settings.html", config_html_start, config_html_end}};
 
 void web_send_to_clients(void *context, uint8_t *data, size_t size)
 {
@@ -854,7 +860,7 @@ esp_err_t web_parse_start_addr_handler(httpd_req_t *req)
     uint32_t start_addr = 0xFFFFFFFF;
     std::stringstream ss;
     std::string json;
-    
+
     auto parse_buffer = std::unique_ptr<uint8_t[]>(new uint8_t[max_parse_size]);
     size_t to_read = (req->content_len < max_parse_size) ? req->content_len : max_parse_size;
 
@@ -885,7 +891,7 @@ esp_err_t web_parse_start_addr_handler(httpd_req_t *req)
         json = "{\"status\":\"success\",\"start_addr\":null,\"message\":\"Not HEX or addr not found\"}";
         ESP_LOGI(TAG, "No HEX start address found in the uploaded file");
     }
-    
+
     httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_sendstr(req, json.c_str());
 
@@ -1023,6 +1029,126 @@ esp_err_t web_set_uart_config_handler(httpd_req_t *req)
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"success\"}");
+
+    return ESP_OK;
+}
+
+esp_err_t web_wifi_config_handler(httpd_req_t *req)
+{
+    web_data_t *data = (web_data_t *)req->user_ctx;
+
+    if (req->method == HTTP_GET && web_resp_file(req, "/data/httpd/settings.html", (char *)data->buf, CONFIG_HTTPD_RESP_BUF_SIZE))
+    {
+        httpd_resp_send_chunk(req, NULL, 0);
+        return ESP_OK;
+    }
+
+    return ESP_FAIL;
+}
+
+esp_err_t web_wifi_settings_handler(httpd_req_t *req)
+{
+    web_data_t *data = (web_data_t *)req->user_ctx;
+    int received = 0;
+    int remaining = req->content_len;
+    int total_received = 0;
+    cJSON *root = NULL;
+    cJSON *ssid_item = NULL;
+    cJSON *password_item = NULL;
+    nvs_handle_t nvs_handle;
+    esp_err_t err;
+
+    if (req->method != HTTP_POST)
+    {
+        httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED, "Method not allowed");
+        return ESP_FAIL;
+    }
+
+    if (req->content_len >= CONFIG_HTTPD_RESP_BUF_SIZE)
+    {
+        ESP_LOGE(TAG, "Request too large");
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Request too large");
+        return ESP_FAIL;
+    }
+
+    while (remaining > 0)
+    {
+        received = httpd_req_recv(req, (char *)data->buf + total_received, remaining);
+        if (received <= 0)
+        {
+            if (received == HTTPD_SOCK_ERR_TIMEOUT)
+            {
+                continue;
+            }
+            ESP_LOGE(TAG, "Failed to receive request body");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive data");
+            return ESP_FAIL;
+        }
+        total_received += received;
+        remaining -= received;
+    }
+
+    data->buf[total_received] = '\0';
+    root = cJSON_Parse((char *)data->buf);
+    if (!root)
+    {
+        ESP_LOGE(TAG, "Failed to parse JSON");
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    ssid_item = cJSON_GetObjectItem(root, "ssid");
+    password_item = cJSON_GetObjectItem(root, "password");
+
+    if (!ssid_item || !cJSON_IsString(ssid_item))
+    {
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing or invalid ssid");
+        return ESP_FAIL;
+    }
+
+    err = nvs_open("wifi_config", NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "NVS open failed: %s", esp_err_to_name(err));
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "NVS open failed");
+        return ESP_FAIL;
+    }
+
+    err = nvs_set_str(nvs_handle, "WIFI_SSID", ssid_item->valuestring);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to save SSID: %s", esp_err_to_name(err));
+        nvs_close(nvs_handle);
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save SSID");
+        return ESP_FAIL;
+    }
+
+    if (password_item && cJSON_IsString(password_item))
+    {
+        err = nvs_set_str(nvs_handle, "WIFI_PASSWORD", password_item->valuestring);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "Failed to save password: %s", esp_err_to_name(err));
+            nvs_close(nvs_handle);
+            cJSON_Delete(root);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save password");
+            return ESP_FAIL;
+        }
+    }
+
+    nvs_close(nvs_handle);
+    cJSON_Delete(root);
+
+    ESP_LOGI(TAG, "WiFi config saved, rebooting...");
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_restart();
 
     return ESP_OK;
 }

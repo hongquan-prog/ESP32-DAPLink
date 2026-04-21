@@ -16,9 +16,12 @@ idf_component_register(SRCS "main.cpp"
                         "programmer/prog_idle.cpp"
                         "programmer/prog_online.cpp"
                         "programmer/prog_offline.cpp"
+                        # WiFi
+                        "wifi.c"
                        INCLUDE_DIRS . usb serial web programmer
                        EMBED_FILES "../html/root.html"
                         "../html/favicon.ico"
                         "../html/program.html"
                         "../html/webserial.html"
-                        "../html/upgrade.html")
+                        "../html/upgrade.html"
+                        "../html/settings.html")

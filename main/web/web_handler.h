@@ -18,8 +18,7 @@ typedef struct
 } web_data_t;
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
     void web_send_to_clients(void *context, uint8_t *data, size_t size);
@@ -43,6 +42,8 @@ extern "C"
     esp_err_t web_online_program_handler(httpd_req_t *req);
     esp_err_t web_upgrade_handler(httpd_req_t *req);
     esp_err_t web_set_uart_config_handler(httpd_req_t *req);
+    esp_err_t web_wifi_config_handler(httpd_req_t *req);
+    esp_err_t web_wifi_settings_handler(httpd_req_t *req);
 
 #ifdef __cplusplus
 }
