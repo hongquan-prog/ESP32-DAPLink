@@ -12,6 +12,20 @@ menu "Debug Probe Configuration"
             bool "CMSIS-DAP SWD"
     endchoice
 
+    choice DEBUG_PROBE_GPIO_MODE
+        prompt "GPIO driver mode"
+        default DEBUG_PROBE_USE_DEDICATED_GPIO
+        help
+            Select GPIO driver mode. Dedicated GPIO provides higher
+            performance for JTAG/SWD operations but is only available
+            on ESP32-S3 and similar chips.
+
+        config DEBUG_PROBE_USE_DEDICATED_GPIO
+            bool "Dedicated GPIO (high speed)"
+        config DEBUG_PROBE_USE_REGULAR_GPIO
+            bool "Regular GPIO (broad compatibility)"
+    endchoice
+
     config DEBUG_PROBE_IFACE_NAME
         string
         default "JTAG" if DEBUG_PROBE_IFACE_JTAG

@@ -6,8 +6,15 @@ set(DAP_sources
 )
 
 set(debug_probe_sources
-    "debug_gpio.c"
+    "debug_gpio_dedic.c"
 )
+
+# Use regular GPIO driver for chips without dedicated GPIO support
+if(CONFIG_DEBUG_PROBE_USE_REGULAR_GPIO)
+    set(debug_probe_sources
+        "debug_gpio_reg.c"
+    )
+endif()
 
 set(include_dirs
     "include"
