@@ -7,3 +7,4 @@ DAP/*
 managed_components/*
 dependencies.lock
 ignore/*
+sdkconfig

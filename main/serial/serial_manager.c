@@ -12,7 +12,9 @@
 #include <string.h>
 #include "serial/serial_manager.h"
 #include "serial/cdc_uart.h"
+#if defined(CONFIG_USB_DEBUG_PROBE)
 #include "usb/usb_cdc_handler.h"
+#endif
 #include "web/web_handler.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -195,7 +197,9 @@ void serial_manager_handle_uart_data(const uint8_t *data, size_t len)
     switch (current)
     {
     case SERIAL_STATE_USB:
+#if defined(CONFIG_USB_DEBUG_PROBE)
         usb_cdc_send_to_host((void *)TINYUSB_CDC_ACM_0, (uint8_t *)data, len);
+#endif
         break;
 
     case SERIAL_STATE_WEB:

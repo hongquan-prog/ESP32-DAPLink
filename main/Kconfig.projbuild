@@ -1,18 +1,27 @@
 menu "ESP32 DAPLink Configuration"
 
+config USB_DEBUG_PROBE
+    bool "Enable USB debug probe"
+    default n
+    help
+        Enable USB debug probe functionality (CMSIS-DAP via TinyUSB).
+
 config TINYUSB_DESC_HID_STRING
     string "HID Device Name"
     default "ESP32 HID CMSIS-DAP"
+    depends on USB_DEBUG_PROBE
     help
         HID device name
 
 config TINYUSB_DESC_VENDOR_STRING
     string "Vendor Bulk Device Name"
     default "ESP32 Bulk CMSIS-DAP"
+    depends on USB_DEBUG_PROBE
 
 config WEBUSB_URL
-        string "WebUSB URL"
-        default "example.tinyusb.org/webusb-serial/index.html"
+    string "WebUSB URL"
+    default "example.tinyusb.org/webusb-serial/index.html"
+    depends on USB_DEBUG_PROBE
 
 choice MSC_STORAGE_MEDIA
     prompt "Storage Media Used"
@@ -32,6 +41,7 @@ endchoice
 choice DAPLINK_CONNECT_METHOD
     prompt "DAPLink connection method"
     default BULK_DAPLINK
+    depends on USB_DEBUG_PROBE
     config HID_DAPLINK
         bool "Connect to computer by HID"
 
@@ -44,6 +54,7 @@ config DAPLINK_DESC_STRING
     string
     default TINYUSB_DESC_HID_STRING if HID_DAPLINK
     default TINYUSB_DESC_VENDOR_STRING if BULK_DAPLINK
+    depends on USB_DEBUG_PROBE
 
 config HTTPD_MAX_OPENED_SOCKETS
     int "The max opened sockets of http server"

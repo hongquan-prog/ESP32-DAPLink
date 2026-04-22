@@ -1,11 +1,17 @@
+set(usb_srcs "")
+if (CONFIG_USB_DEBUG_PROBE)
+set(usb_srcs
+        "usb/msc_disk.c"
+        "usb/usb_cdc_handler.c"
+        "usb/usb_desc.c")
+endif()
+
 idf_component_register(SRCS "main.cpp"
                         # Serial
                         "serial/cdc_uart.c"
                         "serial/serial_manager.c"
                         # USB
-                        "usb/msc_disk.c"
-                        "usb/usb_cdc_handler.c"
-                        "usb/usb_desc.c"
+                        ${usb_srcs}
                         # Web
                         "web/web_handler.cpp"
                         "web/web_server.c"

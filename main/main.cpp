@@ -19,18 +19,23 @@
 #include <nvs_flash.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "tinyusb.h"
-#include "tusb_cdc_acm.h"
 #include "sdkconfig.h"
 #include "serial/cdc_uart.h"
+
+#if defined(CONFIG_USB_DEBUG_PROBE)
+
+#include "tinyusb.h"
 #include "tusb_config.h"
-#include "DAP_config.h"
-#include "DAP.h"
+#include "tusb_cdc_acm.h"
 #include "usb/usb_desc.h"
 #include "usb/msc_disk.h"
+#include "usb/usb_cdc_handler.h"
+#endif
+
+#include "DAP_config.h"
+#include "DAP.h"
 #include "esp_netif.h"
 #include "web/web_handler.h"
-#include "usb/usb_cdc_handler.h"
 #include "esp_http_server.h"
 #include "web/web_server.h"
 #include "programmer/programmer.h"
@@ -41,12 +46,13 @@
 static const char *TAG = "main";
 static httpd_handle_t http_server = NULL;
 
+#if defined(CONFIG_USB_DEBUG_PROBE)
 extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
 {
     return 0;
 }
 
-#ifdef CONFIG_BULK_DAPLINK
+#if defined(CONFIG_BULK_DAPLINK)
 extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request)
 {
     uint16_t total_len = 0;
@@ -109,7 +115,7 @@ extern "C" void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bu
         tud_vendor_n_flush(itf);
     }
 }
-#endif
+#endif // CONFIG_BULK_DAPLINK
 
 extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
 {
@@ -118,6 +124,8 @@ extern "C" void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_r
     DAP_ProcessCommand(buffer, s_tx_buf);
     tud_hid_report(0, s_tx_buf, sizeof(s_tx_buf));
 }
+#endif // CONFIG_USB_DEBUG_PROBE
+
 
 static void event_handler(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data)
@@ -141,12 +149,33 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
 extern "C" void app_main(void)
 {
+#if defined(CONFIG_USB_DEBUG_PROBE)
     bool ret = false;
+    tinyusb_config_t tusb_cfg =
+    {
+        .device_descriptor = NULL,
+        .string_descriptor = NULL,
+        .string_descriptor_count = 0,
+        .external_phy = false,
+        .configuration_descriptor = NULL,
+        .self_powered = false,
+        .vbus_monitor_io = 0
+    };
+    tinyusb_config_cdcacm_t acm_cfg =
+    {
+        .usb_dev = TINYUSB_USBDEV_0,
+        .cdc_port = TINYUSB_CDC_ACM_0,
+        .rx_unread_buf_sz = 64,
+        .callback_rx = usb_cdc_send_to_uart, /* The first way to register a callback */
+        .callback_rx_wanted_char = NULL,
+        .callback_line_state_changed = usb_cdc_line_state_changed,
+        .callback_line_coding_changed = usb_cdc_set_line_codinig
+    };
+#endif
 
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-
     if (wifi_config_exists())
     {
         ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, event_handler, &http_server));
@@ -158,42 +187,20 @@ extern "C" void app_main(void)
         wifi_init_softap();
     }
 
-    tinyusb_config_t tusb_cfg =
-    {
-        .device_descriptor = NULL,
-        .string_descriptor = NULL,
-        .string_descriptor_count = 0,
-        .external_phy = false,
-        .configuration_descriptor = NULL,
-        .self_powered = false,
-        .vbus_monitor_io = 0
-    };
-
-    tinyusb_config_cdcacm_t acm_cfg =
-    {
-        .usb_dev = TINYUSB_USBDEV_0,
-        .cdc_port = TINYUSB_CDC_ACM_0,
-        .rx_unread_buf_sz = 64,
-        .callback_rx = usb_cdc_send_to_uart, /* The first way to register a callback */
-        .callback_rx_wanted_char = NULL,
-        .callback_line_state_changed = usb_cdc_line_state_changed,
-        .callback_line_coding_changed = usb_cdc_set_line_codinig
-    };
-
     web_server_init(&http_server);
     DAP_Setup();
 
     ESP_LOGI(TAG, "USB initialization");
 
+#if defined(CONFIG_USB_DEBUG_PROBE)
     ret = msc_dick_mount(CONFIG_TINYUSB_MSC_MOUNT_PATH);
     tusb_cfg.configuration_descriptor = get_configuration_descriptor(ret);
     tusb_cfg.string_descriptor = get_string_descriptor(ret);
     tusb_cfg.string_descriptor_count = get_string_descriptor_count();
     tusb_cfg.device_descriptor = get_device_descriptor();
-
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_ERROR_CHECK(tusb_cdc_acm_init(&acm_cfg));
-
+#endif
     programmer_init();
 
     // Initialize SerialManager for state management
@@ -201,7 +208,10 @@ extern "C" void app_main(void)
 
     // Initialize UART (always enabled, SerialManager manages data routing)
     cdc_uart_init(UART_NUM_1, GPIO_NUM_13, GPIO_NUM_14, 115200);
+
+#if defined(CONFIG_USB_DEBUG_PROBE)
     cdc_uart_register_rx_handler(CDC_UART_USB_HANDLER, usb_cdc_send_to_host, (void *)TINYUSB_CDC_ACM_0);
+#endif
     cdc_uart_register_rx_handler(CDC_UART_WEB_HANDLER, web_send_to_clients, &http_server);
     ESP_LOGI(TAG, "USB initialization DONE");
 
