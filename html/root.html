@@ -40,15 +40,20 @@
 
         .nav-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
             max-width: 800px;
             margin: 0 auto;
+            padding: 0 10px;
         }
 
         .nav-button {
-            display: block;
-            padding: 25px 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 15px;
+            min-height: 100px;
             background: rgba(18, 18, 26, 0.8);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(0, 245, 255, 0.1);
@@ -56,12 +61,14 @@
             text-decoration: none;
             color: #ffffff;
             text-align: center;
-            font-size: 1.2em;
+            font-size: 1em;
             font-weight: 600;
             transition: all 0.3s ease;
             box-shadow: 0 8px 32px rgba(0, 245, 255, 0.1);
             position: relative;
             overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .nav-button::before {
@@ -100,32 +107,76 @@
             display: flex;
             justify-content: flex-end;
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 15px;
+            right: 15px;
+            z-index: 100;
         }
 
         .settings-btn {
-            padding: 10px 20px;
-            background: rgba(18, 18, 26, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            background: rgba(18, 18, 26, 0.9);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 245, 255, 0.1);
-            border-radius: 10px;
+            border: 1px solid rgba(0, 245, 255, 0.2);
+            border-radius: 12px;
             text-decoration: none;
-            color: rgba(0, 245, 255, 0.7);
-            font-size: 0.9em;
+            color: rgba(0, 245, 255, 0.8);
+            font-size: 1.2em;
             transition: all 0.3s ease;
         }
 
         .settings-btn:hover {
-            border-color: rgba(0, 245, 255, 0.5);
+            border-color: rgba(0, 245, 255, 0.6);
             color: rgba(0, 245, 255, 1);
+            background: rgba(0, 245, 255, 0.1);
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 480px) {
+            .container {
+                padding: 60px 10px 30px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 25px;
+            }
+
+            .nav-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .nav-button {
+                flex-direction: row;
+                min-height: 60px;
+                padding: 15px 20px;
+                font-size: 1.1em;
+            }
+
+            .nav-button .icon {
+                font-size: 1.5em;
+                margin-bottom: 0;
+                margin-right: 15px;
+            }
+        }
+
+        /* Tablet */
+        @media (min-width: 481px) and (max-width: 768px) {
+            .nav-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
     </style>
 </head>
 
 <body>
     <div class="header">
-        <a class="settings-btn" href="/settings">⚙️ 设置</a>
+        <a class="settings-btn" href="/settings">⚙️</a>
     </div>
     <div class="container">
         <h1>⚡ ESP32 DAPLink</h1>
