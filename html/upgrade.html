@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 DAPLink - 固件升级</title>
+    <title>ESP32 DAPLink - Firmware Upgrade</title>
     <style>
         * {
             margin: 0;
@@ -108,6 +108,51 @@
             text-align: center;
             margin-bottom: 50px;
             position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            position: relative;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 100;
+        }
+
+        .lang-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            background: rgba(18, 18, 26, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 245, 255, 0.2);
+            border-radius: 12px;
+            color: rgba(0, 245, 255, 0.8);
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn:hover {
+            border-color: rgba(0, 245, 255, 0.6);
+            color: rgba(0, 245, 255, 1);
+            background: rgba(0, 245, 255, 0.1);
+        }
+
+        .lang-btn.active {
+            background: rgba(0, 245, 255, 0.2);
+            border-color: rgba(0, 245, 255, 0.5);
         }
 
         .header h1 {
@@ -592,11 +637,16 @@
     <!-- 漂浮粒子背景 -->
     <div class="particles" id="particles"></div>
 
+    <div class="header-top">
+        <button class="lang-btn" id="lang-zh" onclick="setLang('zh')">中</button>
+        <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+    </div>
+
     <div class="container">
         <!-- 头部 -->
         <div class="header">
             <h1>⚡ ESP32 DAPLink</h1>
-            <p>固件无线升级系统</p>
+            <p data-i18n="upgrade.subtitle">Wireless Firmware Upgrade System</p>
         </div>
 
         <!-- 设备状态 -->
@@ -608,29 +658,29 @@
                         <line x1="8" y1="21" x2="16" y2="21"/>
                         <line x1="12" y1="17" x2="12" y2="21"/>
                     </svg>
-                    设备信息
+                    <span data-i18n="upgrade.device_info">Device Info</span>
                 </div>
                 <div class="status-indicator ready" id="status-indicator">
                     <span class="status-dot"></span>
-                    <span id="status-text">就绪</span>
+                    <span id="status-text" data-i18n="upgrade.ready">Ready</span>
                 </div>
             </div>
 
             <div class="device-info">
                 <div class="info-item">
-                    <span class="info-label">芯片型号</span>
+                    <span class="info-label" data-i18n="upgrade.chip_model">Chip Model</span>
                     <span class="info-value" id="chip-model">ESP32-S3</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">当前固件版本</span>
+                    <span class="info-label" data-i18n="upgrade.fw_version">Firmware Version</span>
                     <span class="info-value" id="fw-version">v1.0.0</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Flash 容量</span>
+                    <span class="info-label" data-i18n="upgrade.flash_size">Flash Size</span>
                     <span class="info-value" id="flash-size">16 MB</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">WiFi 信号</span>
+                    <span class="info-label" data-i18n="upgrade.wifi_signal">WiFi Signal</span>
                     <span class="info-value" id="wifi-signal">-45 dBm</span>
                 </div>
             </div>
@@ -640,8 +690,8 @@
         <div class="upload-section">
             <div class="upload-area" id="upload-area">
                 <div class="upload-icon">📤</div>
-                <div class="upload-text">拖拽固件文件到此处，或点击选择文件</div>
-                <div class="upload-hint">支持 .bin 格式，最大 10MB</div>
+                <div class="upload-text" data-i18n="upgrade.upload_text">Drag firmware here or click to select</div>
+                <div class="upload-hint" data-i18n="upgrade.upload_hint">Supports .bin format, max 10MB</div>
             </div>
             <input type="file" id="file-input" accept=".bin">
 
@@ -658,11 +708,11 @@
                     </div>
                     <div class="file-meta-item">
                         <span class="file-meta-icon">✅</span>
-                        <span>已就绪</span>
+                        <span data-i18n="upgrade.ready">Ready</span>
                     </div>
                 </div>
                 <div class="btn-group">
-                    <button class="btn btn-primary" id="start-btn">开始升级</button>
+                    <button class="btn btn-primary" id="start-btn" data-i18n="upgrade.start">Start Upgrade</button>
                 </div>
             </div>
         </div>
@@ -670,7 +720,7 @@
         <!-- 进度显示 -->
         <div class="progress-section" id="progress-section">
             <div class="progress-header">
-                <span class="progress-label">升级进度</span>
+                <span class="progress-label" data-i18n="upgrade.upgrade_progress">Upgrade Progress</span>
                 <span class="progress-percent" id="progress-percent">0%</span>
             </div>
             <div class="progress-bar-container">
@@ -678,19 +728,19 @@
             </div>
             <div class="progress-info">
                 <div class="progress-stat">
-                    <div class="progress-stat-label">已传输</div>
+                    <div class="progress-stat-label" data-i18n="upgrade.uploaded">Uploaded</div>
                     <div class="progress-stat-value" id="uploaded-size">0 KB</div>
                 </div>
                 <div class="progress-stat">
-                    <div class="progress-stat-label">总大小</div>
+                    <div class="progress-stat-label" data-i18n="upgrade.total">Total</div>
                     <div class="progress-stat-value" id="total-size">0 KB</div>
                 </div>
                 <div class="progress-stat">
-                    <div class="progress-stat-label">速度</div>
+                    <div class="progress-stat-label" data-i18n="upgrade.speed">Speed</div>
                     <div class="progress-stat-value" id="upload-speed">0 KB/s</div>
                 </div>
                 <div class="progress-stat">
-                    <div class="progress-stat-label">剩余时间</div>
+                    <div class="progress-stat-label" data-i18n="upgrade.eta">ETA</div>
                     <div class="progress-stat-value" id="eta">--:--</div>
                 </div>
             </div>
@@ -699,13 +749,132 @@
         <!-- 日志区域 -->
         <div class="log-section" id="log-section">
             <div class="log-entry info">
-                <span class="log-time">[系统]</span>
-                <span>欢迎使用 ESP32 DAPLink 固件升级系统</span>
+                <span class="log-time">[System]</span>
+                <span data-i18n="upgrade.welcome">Welcome to ESP32 DAPLink Firmware Upgrade System</span>
             </div>
         </div>
     </div>
 
     <script>
+        // i18n translations
+        const translations = {
+            en: {
+                'upgrade.subtitle': 'Wireless Firmware Upgrade System',
+                'upgrade.device_info': 'Device Info',
+                'upgrade.ready': 'Ready',
+                'upgrade.chip_model': 'Chip Model',
+                'upgrade.fw_version': 'Firmware Version',
+                'upgrade.flash_size': 'Flash Size',
+                'upgrade.wifi_signal': 'WiFi Signal',
+                'upgrade.upload_text': 'Drag firmware here or click to select',
+                'upgrade.upload_hint': 'Supports .bin format, max 10MB',
+                'upgrade.start': 'Start Upgrade',
+                'upgrade.upgrade_progress': 'Upgrade Progress',
+                'upgrade.uploaded': 'Uploaded',
+                'upgrade.total': 'Total',
+                'upgrade.speed': 'Speed',
+                'upgrade.eta': 'ETA',
+                'upgrade.welcome': 'Welcome to ESP32 DAPLink Firmware Upgrade System',
+                'upgrade.select_firmware': 'Please select a .bin firmware file',
+                'upgrade.file_too_large': 'File size exceeds 10MB limit',
+                'upgrade.file_selected': 'Selected: {name} ({size})',
+                'upgrade.upgrading': 'Upgrading...',
+                'upgrade.starting': 'Starting firmware upgrade...',
+                'upgrade.uploading': 'Uploading firmware...',
+                'upgrade.progress': 'Progress: {percent}%',
+                'upgrade.success': 'Firmware upgrade completed successfully!',
+                'upgrade.rebooting': 'Device is rebooting...',
+                'upgrade.upgrade_complete': 'Upgrade complete',
+                'upgrade.failed': 'Upgrade failed',
+                'upgrade.retry': 'Retry Upgrade',
+                'upgrade.complete': 'Complete',
+                'upgrade.flash_complete': 'Flash complete, device idle',
+                'upgrade.flash_timeout': 'Flash timeout, may be complete',
+                'upgrade.polling_error': 'Polling error: {error}',
+                'upgrade.connection_ok': 'Device connection OK',
+                'upgrade.waiting_file': 'Waiting for firmware file...',
+                'upgrade.writing': 'Writing...',
+                'upgrade.network_error': 'Network error',
+                'upgrade.timeout': 'Request timeout',
+                'upgrade.done': 'Target chip rebooted, debugger online',
+                'upgrade.error': 'Error: {message}'
+            },
+            zh: {
+                'upgrade.subtitle': '无线固件升级系统',
+                'upgrade.device_info': '设备信息',
+                'upgrade.ready': '就绪',
+                'upgrade.chip_model': '芯片型号',
+                'upgrade.fw_version': '当前固件版本',
+                'upgrade.flash_size': 'Flash 容量',
+                'upgrade.wifi_signal': 'WiFi 信号',
+                'upgrade.upload_text': '拖拽固件文件到此处，或点击选择文件',
+                'upgrade.upload_hint': '支持 .bin 格式，最大 10MB',
+                'upgrade.start': '开始升级',
+                'upgrade.upgrade_progress': '升级进度',
+                'upgrade.uploaded': '已传输',
+                'upgrade.total': '总大小',
+                'upgrade.speed': '速度',
+                'upgrade.eta': '剩余时间',
+                'upgrade.welcome': '欢迎使用 ESP32 DAPLink 固件升级系统',
+                'upgrade.select_firmware': '请选择 .bin 格式的固件文件',
+                'upgrade.file_too_large': '文件大小不能超过 10MB',
+                'upgrade.file_selected': '已选择固件：{name} ({size})',
+                'upgrade.upgrading': '升级中...',
+                'upgrade.starting': '开始固件升级...',
+                'upgrade.uploading': '正在传输固件...',
+                'upgrade.progress': '上传进度：{percent}%',
+                'upgrade.success': '固件升级成功完成！',
+                'upgrade.rebooting': '设备即将重启...',
+                'upgrade.upgrade_complete': '升级完成',
+                'upgrade.failed': '升级失败',
+                'upgrade.retry': '重试升级',
+                'upgrade.complete': '升级完成',
+                'upgrade.flash_complete': '烧录完成，设备空闲',
+                'upgrade.flash_timeout': '烧录超时，但可能已完成',
+                'upgrade.polling_error': '轮询错误：{error}',
+                'upgrade.connection_ok': '设备连接正常',
+                'upgrade.waiting_file': '等待选择固件文件...',
+                'upgrade.writing': '正在写入...',
+                'upgrade.network_error': '网络错误',
+                'upgrade.timeout': '请求超时',
+                'upgrade.done': '目标芯片已重启，调试器在线',
+                'upgrade.error': '错误：{message}'
+            }
+        };
+
+        let currentLang = localStorage.getItem('lang') || 'en';
+        let t = (key, params) => {
+            let text = (translations[currentLang] && translations[currentLang][key]) || key;
+            if (params) {
+                Object.keys(params).forEach(k => {
+                    text = text.replace(`{${k}}`, params[k]);
+                });
+            }
+            return text;
+        };
+
+        function setLang(lang) {
+            currentLang = lang;
+            localStorage.setItem('lang', lang);
+            document.documentElement.lang = lang;
+            applyTranslations();
+            updateLangButtons();
+        }
+
+        function applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[currentLang] && translations[currentLang][key]) {
+                    el.textContent = translations[currentLang][key];
+                }
+            });
+        }
+
+        function updateLangButtons() {
+            document.getElementById('lang-zh').classList.toggle('active', currentLang === 'zh');
+            document.getElementById('lang-en').classList.toggle('active', currentLang === 'en');
+        }
+
         // 创建漂浮粒子
         function createParticles() {
             const container = document.getElementById('particles');
@@ -721,10 +890,10 @@
 
         // 日志系统
         const logSection = document.getElementById('log-section');
-        
+
         function addLog(message, type = 'info') {
             const now = new Date();
-            const time = now.toLocaleTimeString('zh-CN', { hour12: false });
+            const time = now.toLocaleTimeString(currentLang === 'zh' ? 'zh-CN' : 'en-US', { hour12: false });
             const entry = document.createElement('div');
             entry.className = `log-entry ${type}`;
             entry.innerHTML = `<span class="log-time">[${time}]</span><span>${message}</span>`;
@@ -759,10 +928,17 @@
 
         // 格式化时间
         function formatTime(seconds) {
-            if (seconds < 60) return seconds + '秒';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}分${secs}秒`;
+            if (currentLang === 'zh') {
+                if (seconds < 60) return seconds + '秒';
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}分${secs}秒`;
+            } else {
+                if (seconds < 60) return seconds + 's';
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}m ${secs}s`;
+            }
         }
 
         // DOM 元素
@@ -809,34 +985,34 @@
         // 处理文件
         function handleFile(file) {
             if (!file.name.endsWith('.bin')) {
-                addLog('请选择 .bin 格式的固件文件', 'error');
+                addLog(t('upgrade.select_firmware'), 'error');
                 return;
             }
 
             if (file.size > 10 * 1024 * 1024) {
-                addLog('文件大小不能超过 10MB', 'error');
+                addLog(t('upgrade.file_too_large'), 'error');
                 return;
             }
 
             selectedFile = file;
             fileName.textContent = file.name;
             fileSize.textContent = formatSize(file.size);
-            fileDate.textContent = file.lastModifiedDate.toLocaleString('zh-CN');
+            fileDate.textContent = file.lastModifiedDate.toLocaleString(currentLang === 'zh' ? 'zh-CN' : 'en-US');
             fileInfo.classList.add('active');
-            addLog(`已选择固件：${file.name} (${formatSize(file.size)})`, 'info');
+            addLog(t('upgrade.file_selected', { name: file.name, size: formatSize(file.size) }), 'info');
         }
 
         // 开始升级
         let pollingInterval = null;
         let isFlashing = false;
-        
+
         startBtn.addEventListener('click', async () => {
             if (!selectedFile) return;
 
             startBtn.disabled = true;
             progressSection.classList.add('active');
-            updateStatus('updating', '升级中...');
-            addLog('开始固件升级...', 'info');
+            updateStatus('updating', t('upgrade.upgrading'));
+            addLog(t('upgrade.starting'), 'info');
 
             const startTime = Date.now();
             let lastLoaded = 0;
@@ -862,7 +1038,7 @@
                         const logPercent = Math.floor(percent / 10) * 10;
                         const lastLogPercent = Math.floor((lastLoaded / e.total * 100) / 10) * 10;
                         if (logPercent > lastLogPercent && logPercent % 10 === 0) {
-                            addLog(`上传进度：${logPercent}%`, 'info');
+                            addLog(t('upgrade.progress', { percent: logPercent }), 'info');
                         }
                         lastLoaded = e.loaded;
                         lastTime = now;
@@ -871,48 +1047,47 @@
 
                 xhr.addEventListener('load', () => {
                     if (xhr.status === 200) {
-                        updateProgress(100, selectedFile.size, selectedFile.size, 0, '0 秒');
-                        updateStatus('ready', '升级成功');
-                        addLog('固件升级成功完成！', 'success');
-                        addLog('设备即将重启...', 'success');
+                        updateProgress(100, selectedFile.size, selectedFile.size, 0, '0' + (currentLang === 'zh' ? '秒' : 's'));
+                        updateStatus('ready', t('upgrade.success'));
+                        addLog(t('upgrade.success'), 'success');
+                        addLog(t('upgrade.rebooting'), 'success');
                         isFlashing = false;
                         startBtn.disabled = false;
-                        startBtn.textContent = '升级完成';
+                        startBtn.textContent = t('upgrade.complete');
                         // 5 秒后刷新页面
                         setTimeout(() => {
                             window.location.reload();
                         }, 5000);
                     } else {
-                        throw new Error('升级失败：' + xhr.statusText);
+                        throw new Error('Upgrade failed: ' + xhr.statusText);
                     }
                 });
 
                 xhr.addEventListener('error', () => {
                     if (isFlashing) {
-                        throw new Error('网络错误');
+                        throw new Error(t('upgrade.network_error'));
                     }
-                    // 烧录过程中断开可能是设备重启，忽略
                 });
 
                 xhr.addEventListener('timeout', () => {
                     if (isFlashing) {
-                        throw new Error('请求超时');
+                        throw new Error(t('upgrade.timeout'));
                     }
                 });
 
                 xhr.open('POST', '/upgrade');
                 xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-                xhr.timeout = 60000; // 60 秒超时
+                xhr.timeout = 60000;
                 xhr.send(selectedFile);
 
-                addLog('正在传输固件...', 'info');
+                addLog(t('upgrade.uploading'), 'info');
 
             } catch (error) {
                 if (isFlashing) {
-                    updateStatus('error', '升级失败');
-                    addLog(`错误：${error.message}`, 'error');
+                    updateStatus('error', t('upgrade.failed'));
+                    addLog(t('upgrade.error', { message: error.message }), 'error');
                     startBtn.disabled = false;
-                    startBtn.textContent = '重试升级';
+                    startBtn.textContent = t('upgrade.retry');
                 }
             }
         });
@@ -920,10 +1095,10 @@
         // 轮询烧录状态
         function startPollingStatus() {
             let pollCount = 0;
-            const maxPollCount = 60; // 最多轮询 60 次（约 60 秒）
+            const maxPollCount = 60;
             let lastProgress = 0;
             let consecutiveIdleCount = 0;
-            
+
             pollingInterval = setInterval(async () => {
                 pollCount++;
                 try {
@@ -932,47 +1107,46 @@
                         const data = await response.json();
                         const progress = data.progress || 0;
                         const status = data.status || 'unknown';
-                        
+
                         // 更新进度显示
                         if (progress > lastProgress) {
-                            updateProgress(progress, selectedFile.size * (progress / 100), selectedFile.size, 0, '正在写入...');
-                            addLog(`烧录进度：${progress}%`, 'info');
+                            updateProgress(progress, selectedFile.size * (progress / 100), selectedFile.size, 0, t('upgrade.writing'));
+                            addLog(t('upgrade.progress', { percent: progress }), 'info');
                             lastProgress = progress;
-                            consecutiveIdleCount = 0; // 重置 idle 计数
+                            consecutiveIdleCount = 0;
                         }
-                        
+
                         // 检查是否完成：进度 100% 且状态 idle
                         if (progress >= 100 && status === 'idle') {
-                            addLog('烧录完成，设备空闲', 'success');
+                            addLog(t('upgrade.flash_complete'), 'success');
                             stopPollingStatus(true);
                             return;
                         }
-                        
+
                         // 如果连续多次返回 idle 但进度不是 100%，可能烧录已完成
                         if (status === 'idle') {
                             consecutiveIdleCount++;
                             if (consecutiveIdleCount >= 3 && progress >= 90) {
-                                addLog('烧录完成（检测到空闲状态）', 'success');
+                                addLog(t('upgrade.flash_complete'), 'success');
                                 stopPollingStatus(true);
                                 return;
                             }
                         }
-                        
+
                         // 超时处理
                         if (pollCount >= maxPollCount) {
-                            addLog('烧录超时，但可能已完成', 'warning');
+                            addLog(t('upgrade.flash_timeout'), 'warning');
                             stopPollingStatus(true);
                             return;
                         }
                     }
                 } catch (error) {
-                    addLog(`轮询错误：${error.message}`, 'warning');
-                    // 如果连续多次请求失败，认为可能已完成
+                    addLog(t('upgrade.polling_error', { error: error.message }), 'warning');
                     if (pollCount > 10) {
                         stopPollingStatus(true);
                     }
                 }
-            }, 1000); // 每秒轮询一次
+            }, 1000);
         }
 
         function stopPollingStatus(success) {
@@ -981,14 +1155,14 @@
                 pollingInterval = null;
             }
             isFlashing = false;
-            
+
             if (success) {
-                updateProgress(100, selectedFile.size, selectedFile.size, 0, '0 秒');
-                updateStatus('ready', '升级成功');
-                addLog('固件升级成功完成！', 'success');
-                addLog('目标芯片已重启，调试器在线', 'success');
+                updateProgress(100, selectedFile.size, selectedFile.size, 0, '0' + (currentLang === 'zh' ? '秒' : 's'));
+                updateStatus('ready', t('upgrade.success'));
+                addLog(t('upgrade.success'), 'success');
+                addLog(t('upgrade.done'), 'success');
                 startBtn.disabled = false;
-                startBtn.textContent = '再次升级';
+                startBtn.textContent = t('upgrade.upgrade_complete');
             }
         }
 
@@ -1004,15 +1178,16 @@
                 })
                 .catch(e => console.log('Status update failed:', e));
         }
-        
+
         // 初始化
+        document.documentElement.lang = currentLang;
+        applyTranslations();
+        updateLangButtons();
         createParticles();
-        addLog('设备连接正常', 'success');
-        addLog('等待选择固件文件...', 'info');
-        
-        // 立即获取一次状态
+        addLog(t('upgrade.connection_ok'), 'success');
+        addLog(t('upgrade.waiting_file'), 'info');
+
         updateDeviceStatus();
-        // 每 2 秒更新一次 WiFi 信号
         setInterval(updateDeviceStatus, 2000);
     </script>
 </body>

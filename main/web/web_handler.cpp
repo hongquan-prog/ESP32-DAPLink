@@ -468,81 +468,229 @@ void web_add_option(httpd_req_t *req, char *path)
 esp_err_t web_program_handler(httpd_req_t *req)
 {
     web_data_t *data = (web_data_t *)req->user_ctx;
+    char *buf = NULL;
+    size_t buf_size = 0;
+    bool is_zh = false;
 
     if (req->method != HTTP_GET || !web_resp_file(req, "/data/httpd/program.html", (char *)data->buf, CONFIG_HTTPD_RESP_BUF_SIZE))
     {
         return ESP_FAIL;
     }
 
+    /* Check for language preference from query string */
+    buf_size = httpd_req_get_url_query_len(req) + 1;
+    if (buf_size > 1)
+    {
+        buf = (char *)malloc(buf_size);
+        if (buf)
+        {
+            if (httpd_req_get_url_query_str(req, buf, buf_size) == ESP_OK)
+            {
+                char lang[4] = {0};
+                if (httpd_query_key_value(buf, "lang", lang, sizeof(lang)) == ESP_OK)
+                {
+                    is_zh = (strcmp(lang, "zh") == 0);
+                }
+            }
+            free(buf);
+        }
+    }
+
+    /* i18n JavaScript translations */
+    const char *i18n_js =
+        "var _i18n={en:{},zh:{}},_t=function(k){var l=localStorage.getItem('lang')||'en';return _i18n[l][k]||k;};"
+        "_i18n.en={"
+        "'program.title':'Offline Programming Tool',"
+        "'program.algorithm':'Algorithm File',"
+        "'program.select_algorithm':'Select algorithm',"
+        "'program.program':'Program File',"
+        "'program.select_program':'Select program',"
+        "'program.start_addr':'Flash Address',"
+        "'program.start_addr_hint':'BIN needs manual input, HEX auto-parses',"
+        "'program.ram_addr':'RAM Address',"
+        "'program.ram_hint':'e.g.: 0x20000000',"
+        "'program.offline_program':'Offline Program',"
+        "'program.online_program':'Online Program',"
+        "'program.drag_hint':'Drag file here or click to select',"
+        "'program.start':'Start Programming',"
+        "'program.ready':'[System] Ready',"
+        "'program.progress':'Progress: {p}% ({s})',"
+        "'program.complete':'Programming complete!',"
+        "'program.selected':'Selected: {name}',"
+        "'program.parsing_hex':'Parsing HEX file address...',"
+        "'program.hex_parsed':'HEX address auto-parsed: {addr}',"
+        "'program.hex_not_found':'HEX address not found, please fill manually',"
+        "'program.bin_manual':'BIN file needs manual Flash address',"
+        "'program.hex_auto':'hex address auto-parsed',"
+        "'program.hex_failed':'Failed to parse hex file',"
+        "'program.bin_manual2':'BIN file needs manual Flash address',"
+        "'program.select_both':'Please select program and algorithm',"
+        "'program.start_offline':'Starting offline programming: {name}',"
+        "'program.starting':'Programming started',"
+        "'program.program_failed':'Failed: {err}',"
+        "'program.select_file':'Please select file',"
+        "'program.select_algorithm2':'Please select algorithm',"
+        "'program.start_online':'Starting online programming: {name} ({fmt})',"
+        "'program.config_sent':'Config sent, uploading file...',"
+        "'program.config_failed':'Config failed: {err}',"
+        "'program.upload_success':'File uploaded successfully',"
+        "'program.upload_failed':'Upload failed',"
+        "'program.parse_failed':'Parse failed: {err}'"
+        "};"
+        "_i18n.zh={"
+        "'program.title':'离线烧录工具',"
+        "'program.algorithm':'算法文件',"
+        "'program.select_algorithm':'请选择算法',"
+        "'program.program':'程序文件',"
+        "'program.select_program':'请选择程序',"
+        "'program.start_addr':'烧录地址',"
+        "'program.start_addr_hint':'bin 文件需要手动填写，hex 文件自动解析',"
+        "'program.ram_addr':'RAM 地址',"
+        "'program.ram_hint':'例如：0x20000000',"
+        "'program.offline_program':'离线烧录',"
+        "'program.online_program':'在线烧录',"
+        "'program.drag_hint':'拖拽文件到此处或点击选择',"
+        "'program.start':'开始烧录',"
+        "'program.ready':'[系统] 准备就绪',"
+        "'program.progress':'进度：{p}% ({s})',"
+        "'program.complete':'烧录完成！',"
+        "'program.selected':'已选择：{name}',"
+        "'program.parsing_hex':'正在解析 HEX 文件地址...',"
+        "'program.hex_parsed':'HEX 文件地址已自动解析：{addr}',"
+        "'program.hex_not_found':'未找到 HEX 地址，请手动填写',"
+        "'program.bin_manual':'BIN 文件请手动填写 Flash 地址',"
+        "'program.hex_auto':'hex 文件地址已自动解析',"
+        "'program.hex_failed':'解析 hex 文件失败',"
+        "'program.bin_manual2':'bin 文件请手动填写 Flash 地址',"
+        "'program.select_both':'请选择程序和算法',"
+        "'program.start_offline':'开始离线烧录：{name}',"
+        "'program.starting':'烧录已开始',"
+        "'program.program_failed':'失败：{err}',"
+        "'program.select_file':'请选择文件',"
+        "'program.select_algorithm2':'请选择算法',"
+        "'program.start_online':'开始在线烧录：{name} ({fmt})',"
+        "'program.config_sent':'配置已发送，开始上传文件...',"
+        "'program.config_failed':'配置失败：{err}',"
+        "'program.upload_success':'文件上传成功',"
+        "'program.upload_failed':'上传失败',"
+        "'program.parse_failed':'解析失败：{err}'"
+        "};";
+
+    const char *title = is_zh ? "离线烧录工具" : "Offline Programming Tool";
+    const char *algorithm_label = is_zh ? "算法文件" : "Algorithm File";
+    const char *select_algorithm = is_zh ? "请选择算法" : " Select algorithm";
+    const char *program_label = is_zh ? "程序文件" : "Program File";
+    const char *select_program = is_zh ? "请选择程序" : "Select program";
+    const char *start_addr_label = is_zh ? "烧录地址" : "Flash Address";
+    const char *start_addr_ph = is_zh ? "bin 文件需要手动填写，hex 文件自动解析" : "BIN needs manual input, HEX auto-parses";
+    const char *ram_addr_label = is_zh ? "RAM 地址" : "RAM Address";
+    const char *ram_addr_ph = is_zh ? "例如：0x20000000" : "e.g.: 0x20000000";
+    const char *offline_program_btn = is_zh ? "离线烧录" : "Offline Program";
+    const char *online_program_label = is_zh ? "在线烧录" : "Online Program";
+    const char *drag_hint = is_zh ? "拖拽文件到此处或点击选择" : "Drag file here or click to select";
+    const char *start_btn = is_zh ? "开始在线烧录" : "Start Programming";
+    const char *ready_msg = is_zh ? "[系统] 准备就绪" : "[System] Ready";
+
     httpd_resp_sendstr_chunk(req, "<body>"
                                   "<div class=\"container\">"
                                   "<div class=\"header\">"
                                   "<h1>🔧 ESP32 DAPLink</h1>"
-                                  "<p>离线烧录工具</p>"
+                                  "<p>");
+    httpd_resp_sendstr_chunk(req, title);
+    httpd_resp_sendstr_chunk(req, "</p>"
                                   "</div>"
                                   "<div class=\"content\">"
                                   "<div class=\"form-group\">"
-                                  "<label for=\"algorithm\">算法文件</label>"
+                                  "<label for=\"algorithm\">");
+    httpd_resp_sendstr_chunk(req, algorithm_label);
+    httpd_resp_sendstr_chunk(req, "</label>"
                                   "<select id=\"algorithm\">"
-                                  "<option value=\"\">请选择算法</option>");
+                                  "<option value=\"\">");
+    httpd_resp_sendstr_chunk(req, select_algorithm);
+    httpd_resp_sendstr_chunk(req, "</option>");
     web_list_files(CONFIG_PROGRAMMER_ALGORITHM_ROOT, CONFIG_PROGRAMMER_ALGORITHM_ROOT, web_add_option, req);
     httpd_resp_sendstr_chunk(req, "</select>"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<label for=\"offline-program\">程序文件</label>"
+                                  "<label for=\"offline-program\">");
+    httpd_resp_sendstr_chunk(req, program_label);
+    httpd_resp_sendstr_chunk(req, "</label>"
                                   "<select id=\"offline-program\">"
-                                  "<option value=\"\">请选择程序</option>");
+                                  "<option value=\"\">");
+    httpd_resp_sendstr_chunk(req, select_program);
+    httpd_resp_sendstr_chunk(req, "</option>");
     web_list_files(CONFIG_PROGRAMMER_PROGRAM_ROOT, CONFIG_PROGRAMMER_PROGRAM_ROOT, web_add_option, req);
     httpd_resp_sendstr_chunk(req, "</select>"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<label for=\"start-address\">烧录地址</label>"
-                                  "<input type=\"text\" id=\"start-address\" placeholder=\"bin 文件需要手动填写，hex 文件自动解析\">"
+                                  "<label for=\"start-address\">");
+    httpd_resp_sendstr_chunk(req, start_addr_label);
+    httpd_resp_sendstr_chunk(req, "</label>"
+                                  "<input type=\"text\" id=\"start-address\" placeholder=\"");
+    httpd_resp_sendstr_chunk(req, start_addr_ph);
+    httpd_resp_sendstr_chunk(req, "\">"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<label for=\"ram-address\">RAM 地址</label>"
-                                  "<input type=\"text\" id=\"ram-address\" placeholder=\"例如：0x20000000\" value=\"0x20000000\">"
+                                  "<label for=\"ram-address\">");
+    httpd_resp_sendstr_chunk(req, ram_addr_label);
+    httpd_resp_sendstr_chunk(req, "</label>"
+                                  "<input type=\"text\" id=\"ram-address\" placeholder=\"");
+    httpd_resp_sendstr_chunk(req, ram_addr_ph);
+    httpd_resp_sendstr_chunk(req, "\" value=\"0x20000000\">"
                                   "</div>"
                                   "<div class=\"form-group\">"
-                                  "<button id=\"offline-program-btn\">离线烧录</button>"
+                                  "<button id=\"offline-program-btn\">");
+    httpd_resp_sendstr_chunk(req, offline_program_btn);
+    httpd_resp_sendstr_chunk(req, "</button>"
                                   "</div>"
                                   "<hr style=\"border:0;border-top:1px solid rgba(0,245,255,0.2);margin:20px 0;\">"
                                   "<div class=\"form-group\">"
-                                  "<label>在线烧录</label>"
+                                  "<label>");
+    httpd_resp_sendstr_chunk(req, online_program_label);
+    httpd_resp_sendstr_chunk(req, "</label>"
                                   "<div id=\"drop-zone\" style=\"border:2px dashed rgba(0,245,255,0.3);border-radius:10px;padding:30px;text-align:center;cursor:pointer;background:rgba(0,245,255,0.02);\" "
                                   "onclick=\"document.getElementById('online-file').click()\" "
-                                  "ondragover=\"event.preventDefault();this.style.borderColor='var(--primary-color)';\" "
+                                  "ondragover=\"event.preventDefault();this.style.borderColor='var(--primary-color);\" "
                                   "ondragleave=\"this.style.borderColor='rgba(0,245,255,0.3)';\" "
                                   "ondrop=\"handleDrop(event);\">"
                                   "<div style=\"font-size:2em;margin-bottom:10px;\">📤</div>"
-                                  "<div>拖拽文件到此处或点击选择</div>"
+                                  "<div>");
+    httpd_resp_sendstr_chunk(req, drag_hint);
+    httpd_resp_sendstr_chunk(req, "</div>"
                                   "<input type=\"file\" id=\"online-file\" accept=\"*.bin,*.hex\" style=\"display:none;\" onchange=\"handleFile(this.files[0]);\">"
                                   "</div>"
                                   "<div id=\"file-info\" style=\"display:none;margin-top:10px;padding:10px;background:rgba(0,245,255,0.05);border-radius:8px;\">"
                                   "<div id=\"file-name\" style=\"color:var(--primary-color);font-weight:600;\"></div>"
                                   "<div id=\"file-size\" style=\"color:var(--text-secondary);font-size:0.9em;\"></div>"
                                   "</div>"
-                                  "<button id=\"online-program-btn\" style=\"margin-top:10px;display:none;\">开始在线烧录</button>"
+                                  "<button id=\"online-program-btn\" style=\"margin-top:10px;display:none;\">");
+    httpd_resp_sendstr_chunk(req, start_btn);
+    httpd_resp_sendstr_chunk(req, "</button>"
                                   "</div>"
                                   "<div class=\"progress-container\">"
                                   "<progress id=\"progress\" value=\"0\" max=\"100\"></progress>"
                                   "</div>"
                                   "<div class=\"log-section\" id=\"log-section\">"
-                                  "<div class=\"log-entry\">[系统] 准备就绪</div>"
+                                  "<div class=\"log-entry\">");
+    httpd_resp_sendstr_chunk(req, ready_msg);
+    httpd_resp_sendstr_chunk(req, "</div>"
                                   "</div>"
                                   "</div>"
                                   "</div>"
-                                  "<script>"
+                                  "<script>");
+    httpd_resp_sendstr_chunk(req, i18n_js);
+    httpd_resp_sendstr_chunk(req,
                                   "var pollTimer=null,selectedFile=null;"
+                                  "function fmt(s,d){for(var k in d)s=s.replace('{'+k+'}',d[k]);return s;}"
                                   "function addLog(m,t){var l=document.getElementById('log-section');if(!l)return;var e=document.createElement('div');e.className='log-entry '+t;e.innerHTML='['+new Date().toLocaleTimeString()+'] '+m;l.appendChild(e);l.scrollTop=l.scrollHeight;}"
                                   "function updateProgress(p){document.getElementById('progress').value=p;}"
-                                  "function pollStatus(){fetch('/api/query?type=program-status').then(function(r){return r.json();}).then(function(d){var p=d.progress||0;var s=d.status||'unknown';updateProgress(p);addLog('进度：'+p+'% ('+s+')','info');if(p>=100||s=='idle'){clearInterval(pollTimer);addLog('烧录完成！','success');}}).catch(function(e){});}"
+                                  "function pollStatus(){fetch('/api/query?type=program-status').then(function(r){return r.json();}).then(function(d){var p=d.progress||0;var s=d.status||'unknown';updateProgress(p);addLog(fmt(_t('program.progress'),{p:p,s:s}),'info');if(p>=100||s=='idle'){clearInterval(pollTimer);addLog(_t('program.complete'),'success');}}).catch(function(e){});}"
                                   "function handleDrop(e){e.preventDefault();if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);}"
-                                  "function handleFile(f){if(!f)return;selectedFile=f;document.getElementById('file-name').textContent=f.name;document.getElementById('file-size').textContent=(f.size/1024).toFixed(1)+' KB';document.getElementById('file-info').style.display='block';document.getElementById('online-program-btn').style.display='inline-block';addLog('已选择：'+f.name,'info');if(f.name.toLowerCase().endsWith('.hex')){addLog('正在解析 HEX 文件地址...','info');fetch('/api/parse-start-addr',{method:'POST',body:f}).then(function(r){return r.json();}).then(function(d){if(d.start_addr){document.getElementById('start-address').value=d.start_addr;addLog('HEX 文件地址已自动解析：'+d.start_addr,'success');}else{document.getElementById('start-address').value='';addLog('未找到 HEX 地址，请手动填写','warning');}}).catch(function(e){addLog('解析失败：'+e.message,'warning');});}else{document.getElementById('start-address').value='';addLog('BIN 文件请手动填写 Flash 地址','warning');}}"
-                                  "document.getElementById('offline-program').onchange=function(){var p=this.value;if(!p){document.getElementById('start-address').value='';return;}if(p.toLowerCase().endsWith('.hex')){fetch('/api/query?type=start-addr&file='+encodeURIComponent(p)).then(function(r){return r.json();}).then(function(d){if(d.start_addr){document.getElementById('start-address').value=d.start_addr;}addLog('hex 文件地址已自动解析','success');}).catch(function(e){addLog('解析 hex 文件失败','warning');});}else{document.getElementById('start-address').value='';addLog('bin 文件请手动填写 Flash 地址','warning');}};"
-                                  "document.getElementById('offline-program-btn').onclick=function(){var p=document.getElementById('offline-program').value;var a=document.getElementById('algorithm').value;var fa=document.getElementById('start-address').value;var ra=document.getElementById('ram-address').value;if(!p||!a){addLog('请选择程序和算法','error');return;}addLog('开始离线烧录：'+p,'info');var x=new XMLHttpRequest();x.open('POST','/program');x.setRequestHeader('Content-Type','application/json');x.onload=function(){if(x.status==200){addLog('烧录已开始','success');pollTimer=setInterval(pollStatus,1000);}else{addLog('失败：'+x.responseText,'error');}};x.send(JSON.stringify({program:p,algorithm:a,start_addr:parseInt(fa),ram_addr:parseInt(ra),program_mode:'offline',format:'bin',total_size:0}));};"
-                                  "document.getElementById('online-program-btn').onclick=function(){if(!selectedFile){addLog('请选择文件','error');return;}var a=document.getElementById('algorithm').value;var fa=document.getElementById('start-address').value;var ra=document.getElementById('ram-address').value;if(!a){addLog('请选择算法','error');return;}var fmt=selectedFile.name.toLowerCase().endsWith('.hex')?'hex':'bin';addLog('开始在线烧录：'+selectedFile.name+' ('+fmt+')','info');var x=new XMLHttpRequest();x.open('POST','/program');x.setRequestHeader('Content-Type','application/json');x.onload=function(){if(x.status==200){addLog('配置已发送，开始上传文件...','success');uploadFile(selectedFile);}else{addLog('配置失败：'+x.responseText,'error');}};x.send(JSON.stringify({algorithm:a,start_addr:parseInt(fa),ram_addr:parseInt(ra),program_mode:'online',format:fmt,total_size:selectedFile.size}));};"
-                                  "function uploadFile(file){var x=new XMLHttpRequest();x.open('POST','/api/online-program');x.setRequestHeader('Content-Type','application/octet-stream');x.onload=function(){if(x.status==200){addLog('文件上传成功','success');pollTimer=setInterval(pollStatus,1000);}else{addLog('失败：'+x.responseText,'error');}};x.onerror=function(){addLog('上传失败','error');};x.send(file);};"
+                                  "function handleFile(f){if(!f)return;selectedFile=f;document.getElementById('file-name').textContent=f.name;document.getElementById('file-size').textContent=(f.size/1024).toFixed(1)+' KB';document.getElementById('file-info').style.display='block';document.getElementById('online-program-btn').style.display='inline-block';addLog(fmt(_t('program.selected'),{name:f.name}),'info');if(f.name.toLowerCase().endsWith('.hex')){addLog(_t('program.parsing_hex'),'info');fetch('/api/parse-start-addr',{method:'POST',body:f}).then(function(r){return r.json();}).then(function(d){if(d.start_addr){document.getElementById('start-address').value=d.start_addr;addLog(fmt(_t('program.hex_parsed'),{addr:d.start_addr}),'success');}else{document.getElementById('start-address').value='';addLog(_t('program.hex_not_found'),'warning');}}).catch(function(e){addLog(fmt(_t('program.parse_failed'),{err:e.message}),'warning');});}else{document.getElementById('start-address').value='';addLog(_t('program.bin_manual'),'warning');}}"
+                                  "document.getElementById('offline-program').onchange=function(){var p=this.value;if(!p){document.getElementById('start-address').value='';return;}if(p.toLowerCase().endsWith('.hex')){fetch('/api/query?type=start-addr&file='+encodeURIComponent(p)).then(function(r){return r.json();}).then(function(d){if(d.start_addr){document.getElementById('start-address').value=d.start_addr;}addLog(_t('program.hex_auto'),'success');}).catch(function(e){addLog(_t('program.hex_failed'),'warning');});}else{document.getElementById('start-address').value='';addLog(_t('program.bin_manual2'),'warning');}};"
+                                  "document.getElementById('offline-program-btn').onclick=function(){var p=document.getElementById('offline-program').value;var a=document.getElementById('algorithm').value;var fa=document.getElementById('start-address').value;var ra=document.getElementById('ram-address').value;if(!p||!a){addLog(_t('program.select_both'),'error');return;}addLog(fmt(_t('program.start_offline'),{name:p}),'info');var x=new XMLHttpRequest();x.open('POST','/program');x.setRequestHeader('Content-Type','application/json');x.onload=function(){if(x.status==200){addLog(_t('program.starting'),'success');pollTimer=setInterval(pollStatus,1000);}else{addLog(fmt(_t('program.program_failed'),{err:x.responseText}),'error');}};x.send(JSON.stringify({program:p,algorithm:a,start_addr:parseInt(fa),ram_addr:parseInt(ra),program_mode:'offline',format:'bin',total_size:0}));};"
+                                  "document.getElementById('online-program-btn').onclick=function(){if(!selectedFile){addLog(_t('program.select_file'),'error');return;}var a=document.getElementById('algorithm').value;var fa=document.getElementById('start-address').value;var ra=document.getElementById('ram-address').value;if(!a){addLog(_t('program.select_algorithm2'),'error');return;}var fmt=selectedFile.name.toLowerCase().endsWith('.hex')?'hex':'bin';addLog(fmt(_t('program.start_online'),{name:selectedFile.name,fmt:fmt}),'info');var x=new XMLHttpRequest();x.open('POST','/program');x.setRequestHeader('Content-Type','application/json');x.onload=function(){if(x.status==200){addLog(_t('program.config_sent'),'success');uploadFile(selectedFile);}else{addLog(fmt(_t('program.config_failed'),{err:x.responseText}),'error');}};x.send(JSON.stringify({algorithm:a,start_addr:parseInt(fa),ram_addr:parseInt(ra),program_mode:'online',format:fmt,total_size:selectedFile.size}));};"
+                                  "function uploadFile(file){var x=new XMLHttpRequest();x.open('POST','/api/online-program');x.setRequestHeader('Content-Type','application/octet-stream');x.onload=function(){if(x.status==200){addLog(_t('program.upload_success'),'success');pollTimer=setInterval(pollStatus,1000);}else{addLog(_t('program.upload_failed'),'error');}};x.onerror=function(){addLog(_t('program.upload_failed'),'error');};x.send(file);};"
                                   "</script>"
                                   "</body></html>");
     httpd_resp_send_chunk(req, NULL, 0);

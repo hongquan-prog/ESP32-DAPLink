@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -88,6 +88,45 @@
                 transform: translateY(-100vh) rotate(720deg);
                 opacity: 0;
             }
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 100;
+        }
+
+        .lang-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            background: rgba(18, 18, 26, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 245, 255, 0.2);
+            border-radius: 12px;
+            color: rgba(0, 245, 255, 0.8);
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn:hover {
+            border-color: rgba(0, 245, 255, 0.6);
+            color: rgba(0, 245, 255, 1);
+            background: rgba(0, 245, 255, 0.1);
+        }
+
+        .lang-btn.active {
+            background: rgba(0, 245, 255, 0.2);
+            border-color: rgba(0, 245, 255, 0.5);
         }
 
         .container {
@@ -469,27 +508,32 @@
 <body>
     <div class="particles" id="particles"></div>
 
+    <div class="header-top">
+        <button class="lang-btn" id="lang-zh" onclick="setLang('zh')">中</button>
+        <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+    </div>
+
     <div class="container">
         <div class="header">
-            <h1>Web Serial</h1>
-            <p>ESP32 DAPLink Serial Console</p>
+            <h1 data-i18n="serial.title">Web Serial</h1>
+            <p data-i18n="serial.subtitle">ESP32 DAPLink Serial Console</p>
         </div>
 
         <div class="status-bar">
             <div class="status-item">
                 <div class="status-dot" id="ws-status"></div>
-                <span id="ws-status-text">Disconnected</span>
+                <span id="ws-status-text" data-i18n="serial.disconnected">Disconnected</span>
             </div>
             <div class="status-item">
                 <div class="status-dot" id="serial-mode"></div>
-                <span id="serial-mode-text">IDLE</span>
+                <span id="serial-mode-text" data-i18n="serial.idle">IDLE</span>
             </div>
         </div>
 
         <div class="content">
             <div class="control-bar" style="justify-content: space-between;">
                 <div class="control-group">
-                    <label>Baudrate:</label>
+                    <label data-i18n="serial.baudrate">Baudrate:</label>
                     <select id="baudrate-select">
                         <option value="115200">115200</option>
                         <option value="460800">460800</option>
@@ -505,7 +549,7 @@
                     </select>
                 </div>
                 <div class="control-group">
-                    <label>Data Bits:</label>
+                    <label data-i18n="serial.data_bits">Data Bits:</label>
                     <select id="data-bits-select">
                         <option value="8" selected>8</option>
                         <option value="7">7</option>
@@ -514,62 +558,62 @@
                     </select>
                 </div>
                 <div class="control-group">
-                    <label>Parity:</label>
+                    <label data-i18n="serial.parity">Parity:</label>
                     <select id="parity-select">
-                        <option value="0" selected>None</option>
-                        <option value="1">Odd</option>
-                        <option value="2">Even</option>
+                        <option value="0" selected data-i18n="serial.parity_none">None</option>
+                        <option value="1" data-i18n="serial.parity_odd">Odd</option>
+                        <option value="2" data-i18n="serial.parity_even">Even</option>
                     </select>
                 </div>
                 <div class="control-group">
-                    <label>Stop Bits:</label>
+                    <label data-i18n="serial.stop_bits">Stop Bits:</label>
                     <select id="stop-bits-select">
                         <option value="1" selected>1</option>
                         <option value="2">2</option>
                     </select>
                 </div>
-                <button class="ctrl-btn btn-action" id="apply-config-btn">Apply</button>
+                <button class="ctrl-btn btn-action" id="apply-config-btn" data-i18n="serial.apply">Apply</button>
             </div>
 
             <div class="terminal-section">
                 <div class="terminal-box">
                     <h3>
-                        Receive
-                        <span id="rx-hex-indicator" style="display:none;">HEX Mode</span>
+                        <span data-i18n="serial.receive">Receive</span>
+                        <span id="rx-hex-indicator" style="display:none;" data-i18n="serial.hex_mode">HEX Mode</span>
                     </h3>
                     <textarea class="terminal-output" id="rx-area" readonly></textarea>
                     <div class="terminal-controls">
                         <label class="ctrl-btn">
                             <input type="checkbox" id="timestamp-checkbox" checked>
                             <span class="checkmark"></span>
-                            <span>Timestamp</span>
+                            <span data-i18n="serial.timestamp">Timestamp</span>
                         </label>
                         <label class="ctrl-btn">
                             <input type="checkbox" id="scroll-checkbox" checked>
                             <span class="checkmark"></span>
-                            <span>Auto Scroll</span>
+                            <span data-i18n="serial.auto_scroll">Auto Scroll</span>
                         </label>
                         <label class="ctrl-btn">
                             <input type="checkbox" id="hex-display-checkbox">
                             <span class="checkmark"></span>
-                            <span>HEX Display</span>
+                            <span data-i18n="serial.hex_display">HEX Display</span>
                         </label>
                         <div style="flex:1;"></div>
-                        <button class="ctrl-btn btn-action" id="clear-btn">Clear</button>
+                        <button class="ctrl-btn btn-action" id="clear-btn" data-i18n="serial.clear">Clear</button>
                     </div>
                 </div>
                 <div class="terminal-box">
-                    <h3>Send</h3>
-                    <textarea class="terminal-output" id="tx-area" placeholder="Enter text to send..."></textarea>
+                    <h3 data-i18n="serial.send">Send</h3>
+                    <textarea class="terminal-output" id="tx-area" placeholder=""></textarea>
                     <div class="terminal-controls">
                         <label class="ctrl-btn">
                             <input type="checkbox" id="hex-send-checkbox">
                             <span class="checkmark"></span>
-                            <span>HEX Mode</span>
+                            <span data-i18n="serial.hex_mode">HEX Mode</span>
                         </label>
                         <span id="tx-hint" style="color:var(--text-secondary);font-size:0.8em;"></span>
                         <div style="flex:1;"></div>
-                        <button class="ctrl-btn btn-action" id="send-btn" disabled>Send</button>
+                        <button class="ctrl-btn btn-action" id="send-btn" disabled data-i18n="serial.send">Send</button>
                     </div>
                 </div>
             </div>
@@ -577,19 +621,19 @@
             <div class="stats-bar">
                 <div class="stat-item">
                     <div class="value" id="rx-bytes">0</div>
-                    <div class="label">RX Bytes</div>
+                    <div class="label" data-i18n="serial.rx_bytes">RX Bytes</div>
                 </div>
                 <div class="stat-item">
                     <div class="value" id="tx-bytes">0</div>
-                    <div class="label">TX Bytes</div>
+                    <div class="label" data-i18n="serial.tx_bytes">TX Bytes</div>
                 </div>
                 <div class="stat-item">
                     <div class="value" id="rx-packets">0</div>
-                    <div class="label">RX Packets</div>
+                    <div class="label" data-i18n="serial.rx_packets">RX Packets</div>
                 </div>
                 <div class="stat-item">
                     <div class="value" id="tx-packets">0</div>
-                    <div class="label">TX Packets</div>
+                    <div class="label" data-i18n="serial.tx_packets">TX Packets</div>
                 </div>
             </div>
         </div>
@@ -600,6 +644,113 @@
     </div>
 
     <script>
+        // i18n translations
+        const translations = {
+            en: {
+                'serial.title': 'Web Serial',
+                'serial.subtitle': 'ESP32 DAPLink Serial Console',
+                'serial.disconnected': 'Disconnected',
+                'serial.connected': 'Connected',
+                'serial.idle': 'IDLE',
+                'serial.usb': 'USB',
+                'serial.web': 'WEB',
+                'serial.baudrate': 'Baudrate:',
+                'serial.data_bits': 'Data Bits:',
+                'serial.parity': 'Parity:',
+                'serial.parity_none': 'None',
+                'serial.parity_odd': 'Odd',
+                'serial.parity_even': 'Even',
+                'serial.stop_bits': 'Stop Bits:',
+                'serial.apply': 'Apply',
+                'serial.receive': 'Receive',
+                'serial.send': 'Send',
+                'serial.timestamp': 'Timestamp',
+                'serial.auto_scroll': 'Auto Scroll',
+                'serial.hex_display': 'HEX Display',
+                'serial.hex_mode': 'HEX Mode',
+                'serial.clear': 'Clear',
+                'serial.rx_bytes': 'RX Bytes',
+                'serial.tx_bytes': 'TX Bytes',
+                'serial.rx_packets': 'RX Packets',
+                'serial.tx_packets': 'TX Packets',
+                'serial.hex_hint': '(e.g., 01 02 0A FF)',
+                'serial.tx_placeholder': 'Enter text to send...',
+                'serial.tx_hex_placeholder': 'Enter hex bytes (e.g., 01 02 0A FF)...',
+                'serial.connected_msg': '[WebSerial] Connected',
+                'serial.usb_transfer': 'Serial link transferred to USB. Web serial is now paused.',
+                'serial.web_available': 'Serial link is now available for Web.',
+                'serial.link_usb': 'Serial link transferred to USB',
+                'serial.link_web': 'Serial link is now available'
+            },
+            zh: {
+                'serial.title': 'Web 串口',
+                'serial.subtitle': 'ESP32 DAPLink 串口控制台',
+                'serial.disconnected': '未连接',
+                'serial.connected': '已连接',
+                'serial.idle': '空闲',
+                'serial.usb': 'USB',
+                'serial.web': '网络',
+                'serial.baudrate': '波特率:',
+                'serial.data_bits': '数据位:',
+                'serial.parity': '校验:',
+                'serial.parity_none': '无',
+                'serial.parity_odd': '奇',
+                'serial.parity_even': '偶',
+                'serial.stop_bits': '停止位:',
+                'serial.apply': '应用',
+                'serial.receive': '接收',
+                'serial.send': '发送',
+                'serial.timestamp': '时间戳',
+                'serial.auto_scroll': '自动滚动',
+                'serial.hex_display': 'HEX 显示',
+                'serial.hex_mode': 'HEX 模式',
+                'serial.clear': '清除',
+                'serial.rx_bytes': 'RX 字节',
+                'serial.tx_bytes': 'TX 字节',
+                'serial.rx_packets': 'RX 包',
+                'serial.tx_packets': 'TX 包',
+                'serial.hex_hint': '(例如: 01 02 0A FF)',
+                'serial.tx_placeholder': '输入要发送的文本...',
+                'serial.tx_hex_placeholder': '输入十六进制字节 (例如: 01 02 0A FF)...',
+                'serial.connected_msg': '[WebSerial] 已连接',
+                'serial.usb_transfer': '串口已切换到 USB，Web 串口暂停',
+                'serial.web_available': '串口现在可用于 Web',
+                'serial.link_usb': '串口已切换到 USB',
+                'serial.link_web': '串口已可用'
+            }
+        };
+
+        let currentLang = localStorage.getItem('lang') || 'en';
+        let t = (key) => translations[currentLang] && translations[currentLang][key] || key;
+
+        function setLang(lang) {
+            currentLang = lang;
+            localStorage.setItem('lang', lang);
+            document.documentElement.lang = lang;
+            applyTranslations();
+            updateLangButtons();
+            updatePlaceholders();
+        }
+
+        function applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[currentLang] && translations[currentLang][key]) {
+                    el.textContent = translations[currentLang][key];
+                }
+            });
+        }
+
+        function updateLangButtons() {
+            document.getElementById('lang-zh').classList.toggle('active', currentLang === 'zh');
+            document.getElementById('lang-en').classList.toggle('active', currentLang === 'en');
+        }
+
+        function updatePlaceholders() {
+            txArea.placeholder = enableHexSend ? t('serial.tx_hex_placeholder') : t('serial.tx_placeholder');
+            txHint.textContent = enableHexSend ? t('serial.hex_hint') : '';
+        }
+
         // Particle animation
         function createParticles() {
             const container = document.getElementById('particles');
@@ -612,7 +763,6 @@
                 container.appendChild(particle);
             }
         }
-        createParticles();
 
         // State variables
         let websocket = null;
@@ -663,21 +813,20 @@
             websocket.onopen = function() {
                 console.log('WebSocket connected');
                 wsStatus.classList.add('connected');
-                wsStatusText.textContent = 'Connected';
+                wsStatusText.textContent = t('serial.connected');
                 serialMode.classList.add('connected');
-                serialModeText.textContent = 'WEB';
+                serialModeText.textContent = t('serial.web');
                 sendBtn.disabled = false;
-                rxArea.value = '[WebSerial] Connected\n';
+                rxArea.value = t('serial.connected_msg') + '\n';
             };
 
             websocket.onclose = function() {
                 console.log('WebSocket disconnected');
                 wsStatus.classList.remove('connected');
-                wsStatusText.textContent = 'Disconnected';
+                wsStatusText.textContent = t('serial.disconnected');
                 serialMode.classList.remove('connected', 'usb');
-                serialModeText.textContent = 'IDLE';
+                serialModeText.textContent = t('serial.idle');
                 sendBtn.disabled = true;
-                // Reconnect after 2 seconds
                 setTimeout(initWebSocket, 2000);
             };
 
@@ -686,7 +835,6 @@
             };
 
             websocket.onmessage = function(event) {
-                // Check if this is a state change notification
                 try {
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'state_change') {
@@ -694,7 +842,6 @@
                         return;
                     }
                 } catch (e) {
-                    // Not JSON, treat as regular data
                 }
                 handleReceivedData(event.data);
             };
@@ -705,53 +852,40 @@
             console.log('Serial state changed to:', state);
 
             if (state === 'USB') {
-                // Serial link transferred to USB
                 serialMode.classList.add('usb');
                 serialMode.classList.remove('connected');
-                serialModeText.textContent = 'USB';
-
-                // Show notification
-                showNotification('Serial link transferred to USB', 'warning');
-                appendToRx('\n[System] Serial link transferred to USB. Web serial is now paused.\n');
-
-                // Disable send button
+                serialModeText.textContent = t('serial.usb');
+                showNotification(t('serial.link_usb'), 'warning');
+                appendToRx('\n[System] ' + t('serial.usb_transfer') + '\n');
                 sendBtn.disabled = true;
             } else if (state === 'WEB') {
-                // Serial link is now available for Web
                 serialMode.classList.remove('usb');
                 serialMode.classList.add('connected');
-                serialModeText.textContent = 'WEB';
-
-                showNotification('Serial link is now available', 'success');
-                appendToRx('\n[System] Serial link is now available for Web.\n');
-
-                // Enable send button
+                serialModeText.textContent = t('serial.web');
+                showNotification(t('serial.link_web'), 'success');
+                appendToRx('\n[System] ' + t('serial.web_available') + '\n');
                 sendBtn.disabled = false;
             } else if (state === 'IDLE') {
                 serialMode.classList.remove('connected', 'usb');
-                serialModeText.textContent = 'IDLE';
+                serialModeText.textContent = t('serial.idle');
                 sendBtn.disabled = true;
             }
         }
 
         // Show notification banner
         function showNotification(message, type) {
-            // Remove existing notification if any
             const existing = document.querySelector('.notification-banner');
             if (existing) {
                 existing.remove();
             }
 
-            // Create notification element
             const notification = document.createElement('div');
             notification.className = 'notification-banner ' + type;
             notification.innerHTML = '<span>' + message + '</span><button onclick="this.parentElement.remove()">&times;</button>';
 
-            // Insert after status bar
             const statusBar = document.querySelector('.status-bar');
             statusBar.parentNode.insertBefore(notification, statusBar.nextSibling);
 
-            // Auto-remove after 5 seconds
             setTimeout(function() {
                 if (notification.parentElement) {
                     notification.remove();
@@ -766,13 +900,11 @@
             updateStats();
 
             if (enableHexDisplay) {
-                // Display as hex
                 const hexStr = Array.from(textEncoder.encode(data))
                     .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
                     .join(' ');
                 appendToRx(hexStr + ' ');
             } else {
-                // Display as text with timestamp
                 if (enableTimestamp) {
                     cache += data;
                     processCache();
@@ -834,7 +966,6 @@
 
             let data;
             if (enableHexSend) {
-                // Parse hex string (format: "01 02 0A FF")
                 const hexBytes = text.trim().split(/\s+/);
                 const bytes = [];
                 for (const hex of hexBytes) {
@@ -905,8 +1036,7 @@
 
         hexSendCheckbox.addEventListener('change', function() {
             enableHexSend = this.checked;
-            txHint.textContent = enableHexSend ? '(e.g., 01 02 0A FF)' : '';
-            txArea.placeholder = enableHexSend ? 'Enter hex bytes (e.g., 01 02 0A FF)...' : 'Enter text to send...';
+            updatePlaceholders();
         });
 
         clearBtn.addEventListener('click', function() {
@@ -919,6 +1049,11 @@
         });
 
         // Initialize
+        document.documentElement.lang = currentLang;
+        applyTranslations();
+        updateLangButtons();
+        updatePlaceholders();
+        createParticles();
         initWebSocket();
     </script>
 </body>
