@@ -17,6 +17,7 @@ set(COMPONENT_SRCS
     "usbipd/components/usbipd/src/hal/usbip_osal.c"
     "usbipd/components/usbipd/src/hal/usbip_mempool.c"
     "usbipd/components/usbipd/src/hal/usbip_transport.c"
+    "usbipd/components/usbipd/src/hal/usbip_log.c"
     # Platform (ESP-IDF)
     "platform/espidf_transport.c"
     "platform/espidf_os.c"

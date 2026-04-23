@@ -113,7 +113,6 @@ Key files:
 - `usbip_urb.c`: URB queue and processor thread
 - `hid_dap.c`: HID device driver with MS OS 2.0 descriptors
 - `bulk_dap.c`: Bulk device driver for WinUSB
-- `osal_espidf.c`: FreeRTOS OSAL implementation with `osal_thread_delete()`
 
 ### Serial Port Management
 

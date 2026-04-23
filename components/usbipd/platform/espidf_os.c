@@ -283,12 +283,38 @@ static void espidf_cond_destroy(void* handle)
  * ESP-IDF Thread Implementation
  *****************************************************************************/
 
-static int espidf_thread_create(void** handle, void* (*func)(void*), void* arg, size_t stack_size,
+struct thread_callback 
+{
+    void* (*func)(void*);
+    void* arg;
+};
+
+static void freertos_thread_entry(void* arg)
+{
+    struct thread_callback* info = (struct thread_callback*)arg;
+    void* (*thread_func)(void*) = info->func;
+    void* thread_arg = info->arg;
+
+    free(info);
+    thread_func(thread_arg);
+    vTaskDelete(NULL);
+}
+
+static int espidf_thread_create(void** handle, const char *name,void* (*func)(void*), void* arg, size_t stack_size,
                                 int priority)
 {
     TaskHandle_t task_handle;
     BaseType_t ret;
     int task_priority;
+    struct thread_callback* tcb = malloc(sizeof(struct thread_callback));
+
+    if (tcb == NULL)
+    {
+        return OSAL_ERROR;
+    }
+
+    tcb->func = func;
+    tcb->arg = arg;
 
     /* Use default stack size if not specified (ESP-IDF default is typically 2048) */
     if (stack_size == 0)
@@ -314,15 +340,17 @@ static int espidf_thread_create(void** handle, void* (*func)(void*), void* arg, 
 
     /* Note: xTaskCreate internal allocates TCB and stack automatically.
      * We cast func to TaskFunction_t - the return value is ignored by FreeRTOS */
-    ret = xTaskCreate((TaskFunction_t)func, "usbip_task", stack_size / sizeof(StackType_t), arg,
+    ret = xTaskCreate((TaskFunction_t)freertos_thread_entry, name, stack_size / sizeof(StackType_t), tcb,
                       task_priority, &task_handle);
 
     if (ret != pdPASS)
     {
+        free(tcb);
         return OSAL_ERROR;
     }
 
     *handle = (void*)task_handle;
+
     return OSAL_OK;
 }
 
@@ -352,15 +380,6 @@ static int espidf_thread_detach(void* handle)
     /* In FreeRTOS, tasks are automatically cleaned up when they exit
      * if they were created with xTaskCreate. Nothing special to do here. */
     (void)handle;
-
-    return OSAL_OK;
-}
-
-static int espidf_thread_delete(void* handle)
-{
-    TaskHandle_t task = (TaskHandle_t)handle;
-
-    vTaskDelete(task);
 
     return OSAL_OK;
 }
@@ -403,7 +422,6 @@ static osal_ops_t espidf_ops = {
     .thread_join = espidf_thread_join,
     .thread_is_self = espidf_thread_is_self,
     .thread_detach = espidf_thread_detach,
-    .thread_delete = espidf_thread_delete,
 
     /* Time */
     .get_time_ms = espidf_get_time_ms,

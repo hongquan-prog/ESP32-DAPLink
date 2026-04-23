@@ -74,7 +74,6 @@ else
 ### 3. 线程安全
 - 使用互斥锁保护共享状态
 - 条件变量用于线程同步
-- FreeRTOS 兼容实现（`osal_thread_delete()`）
 
 ---
 

@@ -55,7 +55,6 @@ components/usbipd/
 ### 3. OS 抽象层 (OSAL)
 - 跨平台支持：POSIX 和 FreeRTOS
 - 提供线程、互斥锁、条件变量、内存管理抽象
-- 新增 `osal_thread_delete()` 接口支持 FreeRTOS
 
 ### 4. URB 处理
 - 生产者-消费者模式处理 URB
