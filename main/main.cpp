@@ -21,6 +21,7 @@
 #include "freertos/task.h"
 #include "sdkconfig.h"
 #include "serial/cdc_uart.h"
+#include "disk/disk.h"
 
 #if defined(CONFIG_USB_DEBUG_PROBE)
 
@@ -200,6 +201,8 @@ extern "C" void app_main(void)
     tusb_cfg.device_descriptor = get_device_descriptor();
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_ERROR_CHECK(tusb_cdc_acm_init(&acm_cfg));
+#else
+    mount_spiflash_fs();
 #endif
     programmer_init();
 

@@ -33,7 +33,7 @@
 #include <iomanip>
 
 #define TAG "web_handler"
-#define WEB_RESOURCE_NUM 6
+#define WEB_RESOURCE_NUM 5
 #define IS_FILE_EXT(filename, ext) (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 typedef struct
@@ -45,8 +45,6 @@ typedef struct
 
 extern const uint8_t root_html_start[] asm("_binary_root_html_start");
 extern const uint8_t root_html_end[] asm("_binary_root_html_end");
-extern const uint8_t program_html_start[] asm("_binary_program_html_start");
-extern const uint8_t program_html_end[] asm("_binary_program_html_end");
 extern const uint8_t webserial_html_start[] asm("_binary_webserial_html_start");
 extern const uint8_t webserial_html_end[] asm("_binary_webserial_html_end");
 extern const uint8_t upgrade_html_start[] asm("_binary_upgrade_html_start");
@@ -59,7 +57,6 @@ extern const uint8_t config_html_end[] asm("_binary_settings_html_end");
 web_resource_map_t s_resource_map[WEB_RESOURCE_NUM] = {
     {"/data/httpd/root.html", root_html_start, root_html_end},
     {"/data/httpd/favicon.ico", favicon_ico_start, favicon_ico_end},
-    {"/data/httpd/program.html", program_html_start, program_html_end},
     {"/data/httpd/webserial.html", webserial_html_start, webserial_html_end},
     {"/data/httpd/upgrade.html", upgrade_html_start, upgrade_html_end},
     {"/data/httpd/settings.html", config_html_start, config_html_end}};
@@ -421,6 +418,7 @@ bool web_list_files(const char *root, const char *path, void (*cb)(httpd_req_t *
     if (dir == NULL)
     {
         ESP_LOGE(TAG, "Open directory %s failed", path);
+        mkdir(path, 0777);
         goto __exit;
     }
 
@@ -467,12 +465,11 @@ void web_add_option(httpd_req_t *req, char *path)
 
 esp_err_t web_program_handler(httpd_req_t *req)
 {
-    web_data_t *data = (web_data_t *)req->user_ctx;
     char *buf = NULL;
     size_t buf_size = 0;
     bool is_zh = false;
 
-    if (req->method != HTTP_GET || !web_resp_file(req, "/data/httpd/program.html", (char *)data->buf, CONFIG_HTTPD_RESP_BUF_SIZE))
+    if (req->method != HTTP_GET)
     {
         return ESP_FAIL;
     }
@@ -495,6 +492,43 @@ esp_err_t web_program_handler(httpd_req_t *req)
             free(buf);
         }
     }
+
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_sendstr_chunk(req, "<!DOCTYPE html>"
+                                  "<html lang=\"en\">"
+                                  "<head>"
+                                  "<meta charset=\"utf-8\">"
+                                  "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+                                  "<title>Program Device</title>"
+                                  "<style>"
+                                  "*{margin:0;padding:0;box-sizing:border-box}"
+                                  "body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0a0a0f 0%,#1a1a2e 50%,#0a0a0f 100%);color:#fff}"
+                                  ".container{max-width:800px;margin:0 auto;padding:15px}"
+                                  ".header{text-align:center;margin-bottom:20px}"
+                                  ".content{background:rgba(18,18,26,.8);backdrop-filter:blur(10px);border:1px solid rgba(0,245,255,.1);border-radius:15px;padding:25px}"
+                                  ".form-group{margin-bottom:20px}"
+                                  ".form-group label{display:block;margin-bottom:8px;color:rgba(0,245,255,.8);font-weight:600}"
+                                  ".form-group input,.form-group select,.form-group button{width:100%;padding:12px;border-radius:8px;font-size:14px}"
+                                  ".form-group input,.form-group select{background:rgba(0,0,0,.3);border:1px solid rgba(0,245,255,.2);color:#fff}"
+                                  ".form-group button{background:linear-gradient(135deg,rgba(0,245,255,.2),rgba(123,44,191,.2));border:1px solid rgba(0,245,255,.3);color:#fff;font-weight:600;cursor:pointer}"
+                                  ".form-group button:hover{border-color:rgba(0,245,255,.5);transform:translateY(-2px)}"
+                                  ".progress-container{margin:20px 0}"
+                                  ".progress-container progress{width:100%;height:20px;border-radius:10px}"
+                                  ".log-section{background:rgba(0,0,0,.3);border-radius:8px;padding:10px;max-height:150px;overflow-y:auto}"
+                                  ".log-entry{padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}"
+                                  ".log-entry.info{color:#00f5ff}"
+                                  ".log-entry.success{color:#00ff88}"
+                                  ".log-entry.error{color:#ff006e}"
+                                  ".log-entry.warning{color:#ffaa00}"
+                                  ".drop-zone{border:2px dashed rgba(0,245,255,.3);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .3s}"
+                                  ".drop-zone:hover{border-color:rgba(0,245,255,.6);background:rgba(0,245,255,.02)}"
+                                  ".file-info{background:rgba(0,245,255,.05);border-radius:8px;padding:10px;margin-top:10px}"
+                                  "</style>"
+                                  "</head>"
+                                  "<body>"
+                                  "<div class=\"container\">"
+                                  "<div class=\"header\">"
+                                  "<p>");
 
     /* i18n JavaScript translations */
     const char *i18n_js =
@@ -530,6 +564,10 @@ esp_err_t web_program_handler(httpd_req_t *req)
         "'program.program_failed':'Failed: {err}',"
         "'program.select_file':'Please select file',"
         "'program.select_algorithm2':'Please select algorithm',"
+        "'program.upload_algorithm':'Upload Algorithm',"
+        "'program.algorithm_upload_hint':'Drag FLM file here or click to upload',"
+        "'program.algorithm_uploaded':'Algorithm uploaded: {name}',"
+        "'program.algorithm_upload_failed':'Algorithm upload failed',"
         "'program.start_online':'Starting online programming: {name} ({fmt})',"
         "'program.config_sent':'Config sent, uploading file...',"
         "'program.config_failed':'Config failed: {err}',"
@@ -568,6 +606,10 @@ esp_err_t web_program_handler(httpd_req_t *req)
         "'program.program_failed':'失败：{err}',"
         "'program.select_file':'请选择文件',"
         "'program.select_algorithm2':'请选择算法',"
+        "'program.upload_algorithm':'上传算法',"
+        "'program.algorithm_upload_hint':'拖拽 FLM 文件到此处或点击上传',"
+        "'program.algorithm_uploaded':'算法已上传：{name}',"
+        "'program.algorithm_upload_failed':'算法上传失败',"
         "'program.start_online':'开始在线烧录：{name} ({fmt})',"
         "'program.config_sent':'配置已发送，开始上传文件...',"
         "'program.config_failed':'配置失败：{err}',"
@@ -590,9 +632,10 @@ esp_err_t web_program_handler(httpd_req_t *req)
     const char *drag_hint = is_zh ? "拖拽文件到此处或点击选择" : "Drag file here or click to select";
     const char *start_btn = is_zh ? "开始在线烧录" : "Start Programming";
     const char *ready_msg = is_zh ? "[系统] 准备就绪" : "[System] Ready";
+    const char *upload_algorithm = is_zh ? "上传算法文件" : "Upload Algorithm File";
+    const char *algo_upload_hint = is_zh ? "拖拽 FLM 文件到此处或点击上传" : "Drag FLM file here or click to upload";
 
-    httpd_resp_sendstr_chunk(req, "<body>"
-                                  "<div class=\"container\">"
+    httpd_resp_sendstr_chunk(req, "<div class=\"container\">"
                                   "<div class=\"header\">"
                                   "<h1>🔧 ESP32 DAPLink</h1>"
                                   "<p>");
@@ -610,6 +653,25 @@ esp_err_t web_program_handler(httpd_req_t *req)
     httpd_resp_sendstr_chunk(req, "</option>");
     web_list_files(CONFIG_PROGRAMMER_ALGORITHM_ROOT, CONFIG_PROGRAMMER_ALGORITHM_ROOT, web_add_option, req);
     httpd_resp_sendstr_chunk(req, "</select>"
+                                  "</div>"
+                                  "<div class=\"form-group\">"
+                                  "<label>");
+    httpd_resp_sendstr_chunk(req, upload_algorithm);
+    httpd_resp_sendstr_chunk(req, "</label>"
+                                  "<div id=\"algo-drop-zone\" style=\"border:2px dashed rgba(0,245,255,0.3);border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:rgba(0,245,255,0.02);\" "
+                                  "onclick=\"document.getElementById('algo-file').click()\" "
+                                  "ondragover=\"event.preventDefault();this.style.borderColor='var(--primary-color);\" "
+                                  "ondragleave=\"this.style.borderColor='rgba(0,245,255,0.3)';\" "
+                                  "ondrop=\"handleAlgoDrop(event);\">"
+                                  "<div style=\"font-size:1.5em;margin-bottom:5px;\">📁</div>"
+                                  "<div style=\"font-size:0.85em;color:rgba(255,255,255,0.6);\">");
+    httpd_resp_sendstr_chunk(req, algo_upload_hint);
+    httpd_resp_sendstr_chunk(req, "</div>"
+                                  "<input type=\"file\" id=\"algo-file\" accept=\"*.flm\" style=\"display:none;\" onchange=\"handleAlgoFile(this.files[0]);\">"
+                                  "</div>"
+                                  "<div id=\"algo-file-info\" style=\"display:none;margin-top:10px;padding:10px;background:rgba(0,245,255,0.05);border-radius:8px;\">"
+                                  "<div id=\"algo-file-name\" style=\"color:var(--primary-color);font-weight:600;\"></div>"
+                                  "<div id=\"algo-file-size\" style=\"color:var(--text-secondary);font-size:0.9em;\"></div>"
                                   "</div>"
                                   "<div class=\"form-group\">"
                                   "<label for=\"offline-program\">");
@@ -687,6 +749,8 @@ esp_err_t web_program_handler(httpd_req_t *req)
                                   "function pollStatus(){fetch('/api/query?type=program-status').then(function(r){return r.json();}).then(function(d){var p=d.progress||0;var s=d.status||'unknown';updateProgress(p);addLog(fmt(_t('program.progress'),{p:p,s:s}),'info');if(p>=100||s=='idle'){clearInterval(pollTimer);addLog(_t('program.complete'),'success');}}).catch(function(e){});}"
                                   "function handleDrop(e){e.preventDefault();if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);}"
                                   "function handleFile(f){if(!f)return;selectedFile=f;document.getElementById('file-name').textContent=f.name;document.getElementById('file-size').textContent=(f.size/1024).toFixed(1)+' KB';document.getElementById('file-info').style.display='block';document.getElementById('online-program-btn').style.display='inline-block';addLog(fmt(_t('program.selected'),{name:f.name}),'info');if(f.name.toLowerCase().endsWith('.hex')){addLog(_t('program.parsing_hex'),'info');fetch('/api/parse-start-addr',{method:'POST',body:f}).then(function(r){return r.json();}).then(function(d){if(d.start_addr){document.getElementById('start-address').value=d.start_addr;addLog(fmt(_t('program.hex_parsed'),{addr:d.start_addr}),'success');}else{document.getElementById('start-address').value='';addLog(_t('program.hex_not_found'),'warning');}}).catch(function(e){addLog(fmt(_t('program.parse_failed'),{err:e.message}),'warning');});}else{document.getElementById('start-address').value='';addLog(_t('program.bin_manual'),'warning');}}"
+                                  "function handleAlgoDrop(e){e.preventDefault();if(e.dataTransfer.files.length)handleAlgoFile(e.dataTransfer.files[0]);}"
+                                  "function handleAlgoFile(f){if(!f)return;addLog(fmt(_t('program.selected'),{name:f.name}),'info');var x=new XMLHttpRequest();x.open('POST','/api/upload?location=algorithm&name='+encodeURIComponent(f.name)+'&overwrite=true');x.onload=function(){if(x.status==200){document.getElementById('algo-file-name').textContent=f.name;document.getElementById('algo-file-size').textContent=(f.size/1024).toFixed(1)+' KB';document.getElementById('algo-file-info').style.display='block';addLog(fmt(_t('program.algorithm_uploaded'),{name:f.name}),'success');var opt=document.createElement('option');opt.value=f.name;opt.textContent=f.name;var sel=document.getElementById('algorithm');sel.insertBefore(opt,sel.firstChild);sel.value=f.name;}else{addLog(_t('program.algorithm_upload_failed'),'error');}};x.onerror=function(){addLog(_t('program.algorithm_upload_failed'),'error');};x.send(f);}"
                                   "document.getElementById('offline-program').onchange=function(){var p=this.value;if(!p){document.getElementById('start-address').value='';return;}if(p.toLowerCase().endsWith('.hex')){fetch('/api/query?type=start-addr&file='+encodeURIComponent(p)).then(function(r){return r.json();}).then(function(d){if(d.start_addr){document.getElementById('start-address').value=d.start_addr;}addLog(_t('program.hex_auto'),'success');}).catch(function(e){addLog(_t('program.hex_failed'),'warning');});}else{document.getElementById('start-address').value='';addLog(_t('program.bin_manual2'),'warning');}};"
                                   "document.getElementById('offline-program-btn').onclick=function(){var p=document.getElementById('offline-program').value;var a=document.getElementById('algorithm').value;var fa=document.getElementById('start-address').value;var ra=document.getElementById('ram-address').value;if(!p||!a){addLog(_t('program.select_both'),'error');return;}addLog(fmt(_t('program.start_offline'),{name:p}),'info');var x=new XMLHttpRequest();x.open('POST','/program');x.setRequestHeader('Content-Type','application/json');x.onload=function(){if(x.status==200){addLog(_t('program.starting'),'success');pollTimer=setInterval(pollStatus,1000);}else{addLog(fmt(_t('program.program_failed'),{err:x.responseText}),'error');}};x.send(JSON.stringify({program:p,algorithm:a,start_addr:parseInt(fa),ram_addr:parseInt(ra),program_mode:'offline',format:'bin',total_size:0}));};"
                                   "document.getElementById('online-program-btn').onclick=function(){if(!selectedFile){addLog(_t('program.select_file'),'error');return;}var a=document.getElementById('algorithm').value;var fa=document.getElementById('start-address').value;var ra=document.getElementById('ram-address').value;if(!a){addLog(_t('program.select_algorithm2'),'error');return;}var fmt=selectedFile.name.toLowerCase().endsWith('.hex')?'hex':'bin';addLog(fmt(_t('program.start_online'),{name:selectedFile.name,fmt:fmt}),'info');var x=new XMLHttpRequest();x.open('POST','/program');x.setRequestHeader('Content-Type','application/json');x.onload=function(){if(x.status==200){addLog(_t('program.config_sent'),'success');uploadFile(selectedFile);}else{addLog(fmt(_t('program.config_failed'),{err:x.responseText}),'error');}};x.send(JSON.stringify({algorithm:a,start_addr:parseInt(fa),ram_addr:parseInt(ra),program_mode:'online',format:fmt,total_size:selectedFile.size}));};"
@@ -753,18 +817,36 @@ static esp_err_t web_upload_file(httpd_req_t *req, char *path, bool overwrite)
 #define PROGRAM_MAX_SIZE 0xA00000
 #define PROGRAM_MAX_SIZE_STR "10M"
 
+    char *dir_path = NULL;
+    char *last_slash = NULL;
     FILE *fd = NULL;
     int received = 0;
     struct stat file_stat;
     int remaining = req->content_len;
     web_data_t *data = (web_data_t *)req->user_ctx;
 
-    ESP_LOGI(TAG, "File name : %s", path);
+    /* Ensure parent directory exists */
+    dir_path = strdup(path);
+    if (dir_path)
+    {
+        last_slash = strrchr(dir_path, '/');
+        if (last_slash)
+        {
+            *last_slash = '\0';
+            if (stat(dir_path, &file_stat) != 0)
+            {
+                ESP_LOGI(TAG, "Creating directory: %s", dir_path);
+                mkdir(dir_path, 0777);
+            }
+        }
+        free(dir_path);
+    }
 
     if (stat(path, &file_stat) == 0)
     {
         if (!overwrite)
         {
+            ESP_LOGE(TAG, "File already exists: %s", path);
             httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File already exist!");
             return ESP_FAIL;
         }
@@ -830,6 +912,7 @@ static esp_err_t web_upload_file(httpd_req_t *req, char *path, bool overwrite)
 
 esp_err_t web_upload_file_handler(httpd_req_t *req)
 {
+    struct stat st;
     char *buf = NULL;
     size_t buf_size = 0;
     char overwrite[5] = {0};
@@ -874,6 +957,16 @@ esp_err_t web_upload_file_handler(httpd_req_t *req)
         free(buf);
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Upload position is invalid");
         return ESP_FAIL;
+    }
+
+    /* Create directory if not exists */
+    if (stat(location, &st) != 0)
+    {
+        ESP_LOGI(TAG, "Creating directory: %s", location);
+        if (mkdir(location, 0777) != 0)
+        {
+            ESP_LOGE(TAG, "Failed to create directory: %s", location);
+        }
     }
 
     /* Add Slash */

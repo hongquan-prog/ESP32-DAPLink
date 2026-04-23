@@ -7,6 +7,8 @@ set(usb_srcs
 endif()
 
 idf_component_register(SRCS "main.cpp"
+                        # Disk
+                        "disk/disk.c"
                         # Serial
                         "serial/cdc_uart.c"
                         "serial/serial_manager.c"
@@ -27,7 +29,6 @@ idf_component_register(SRCS "main.cpp"
                        INCLUDE_DIRS . usb serial web programmer
                        EMBED_FILES "../html/root.html"
                         "../html/favicon.ico"
-                        "../html/program.html"
                         "../html/webserial.html"
                         "../html/upgrade.html"
                         "../html/settings.html")

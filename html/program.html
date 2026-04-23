@@ -1,296 +1,297 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 DAPLink - Program</title>
+    <meta charset="utf-8" />
+    <title>Program Device</title>
     <style>
-        * {
+        body,
+        html {
+            height: 100%;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary-color: #00f5ff;
-            --secondary-color: #7b2cbf;
-            --accent-color: #ff006e;
-            --bg-dark: #0a0a0f;
-            --bg-card: #12121a;
-            --text-primary: #ffffff;
-            --text-secondary: #a0a0b0;
-            --success: #00ff88;
-            --warning: #ffaa00;
-            --error: #ff4444;
-        }
-
-        body {
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            background: linear-gradient(135deg, var(--bg-dark) 0%, #1a1a2e 50%, var(--bg-dark) 100%);
-            min-height: 100vh;
-            color: var(--text-primary);
-            overflow-x: hidden;
-            position: relative;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image:
-                linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            pointer-events: none;
-            z-index: 0;
-            animation: gridMove 20s linear infinite;
-        }
-
-        @keyframes gridMove {
-            0% { transform: translate(0, 0); }
-            100% { transform: translate(50px, 50px); }
-        }
-
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-            overflow: hidden;
-        }
-
-        .particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: var(--primary-color);
-            border-radius: 50%;
-            opacity: 0.3;
-            animation: float 15s infinite;
-            box-shadow: 0 0 10px var(--primary-color);
-        }
-
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(100vh) rotate(0deg);
-                opacity: 0;
-            }
-            10% { opacity: 0.3; }
-            90% { opacity: 0.3; }
-            100% {
-                transform: translateY(-100vh) rotate(720deg);
-                opacity: 0;
-            }
-        }
-
-        .header-top {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            position: fixed;
-            top: 15px;
-            right: 15px;
-            z-index: 100;
-        }
-
-        .lang-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 44px;
-            height: 44px;
-            padding: 0;
-            background: rgba(18, 18, 26, 0.9);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 245, 255, 0.2);
-            border-radius: 12px;
-            color: rgba(0, 245, 255, 0.8);
-            font-size: 0.9em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .lang-btn:hover {
-            border-color: rgba(0, 245, 255, 0.6);
-            color: rgba(0, 245, 255, 1);
-            background: rgba(0, 245, 255, 0.1);
-        }
-
-        .lang-btn.active {
-            background: rgba(0, 245, 255, 0.2);
-            border-color: rgba(0, 245, 255, 0.5);
         }
 
         .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            font-weight: 700;
-            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--accent-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            color: var(--text-secondary);
-            font-size: 1.1em;
+            display: flex;
+            height: 90%;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
         }
 
         .content {
-            background: rgba(18, 18, 26, 0.8);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
-            border: 1px solid rgba(0, 245, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(0, 245, 255, 0.1);
+            width: 600px;
         }
 
         .form-group {
             margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group input {
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+            border: 1px solid black;
         }
 
         .form-group label {
             display: block;
-            font-size: 0.9em;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-align: left;
         }
 
         .form-group select,
-        .form-group input {
+        .progress-container progress {
             width: 100%;
-            padding: 12px 16px;
-            font-size: 1em;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 245, 255, 0.2);
-            border-radius: 10px;
-            color: var(--text-primary);
-        }
-
-        .form-group select:focus,
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 15px rgba(0, 245, 255, 0.2);
-        }
-
-        .form-group select option {
-            background: var(--bg-card);
-            color: var(--text-primary);
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
         }
 
         .form-group button {
-            padding: 14px 32px;
-            font-size: 1.1em;
-            font-weight: 600;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: var(--text-primary);
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
             border: none;
-            border-radius: 10px;
             cursor: pointer;
             width: 100%;
-            box-shadow: 0 4px 15px rgba(0, 245, 255, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .form-group button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 245, 255, 0.5);
-        }
-
-        .progress-container {
-            margin-top: 20px;
-        }
-
-        .progress-container progress {
-            width: 100%;
-            height: 20px;
-        }
-
-        .log-section {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px;
-            max-height: 200px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.85em;
-            margin-top: 20px;
-        }
-
-        .log-entry {
-            padding: 6px 10px;
-            margin-bottom: 4px;
-            border-radius: 4px;
-            border-left: 2px solid var(--primary-color);
-            background: rgba(0, 245, 255, 0.05);
-        }
-
-        @media (max-width: 768px) {
-            .header h1 { font-size: 1.8em; }
-            .container { padding: 20px 15px; }
-            .content { padding: 20px; }
         }
     </style>
 </head>
-<body>
-    <div class="header-top">
-        <button class="lang-btn" id="lang-zh" onclick="setLang('zh')">中</button>
-        <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
-    </div>
-    <div class="particles" id="particles"></div>
+<script>
+    var programProgressTimer;
 
-    <script>
-        let currentLang = localStorage.getItem('lang') || 'en';
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("offline-program-btn").addEventListener('click', offlineProgram);
+        document.getElementById("upload-program-btn").addEventListener('click', uploadProgram);
+        document.getElementById("upload-algorithm-btn").addEventListener('click', uploadAlgorithm);
+        document.getElementById("online-program-btn").addEventListener('click', onlineProgram);
+    });
 
-        function setLang(lang) {
-            currentLang = lang;
-            localStorage.setItem('lang', lang);
-            document.documentElement.lang = lang;
-            updateLangButtons();
+    function offlineProgram() {
+        var program = document.getElementById("offline-program").value;
+        programRequest(program, "offline", program.split('.').pop(), 0, offlineProgramResponseHandle);
+    }
+
+    function getFileById(id) {
+        let fileInput = document.getElementById(id).files;
+
+        if (fileInput.length == 0) {
+            alert("No file selected!");
+            return;
         }
 
-        function updateLangButtons() {
-            document.getElementById('lang-zh').classList.toggle('active', currentLang === 'zh');
-            document.getElementById('lang-en').classList.toggle('active', currentLang === 'en');
+        let name = fileInput[0].name;
+        if (name.length == 0) {
+            alert("File path on server is not set!");
+        } else if (name.indexOf(' ') >= 0) {
+            alert("File path on server cannot have spaces!");
+        } else if (name[name.length - 1] == '/') {
+            alert("File name not specified after path!");
+        } else if (fileInput[0].size > 10 * 1024 * 1024) {
+            alert("File size must be less than 10M!");
+        } else {
+            return fileInput[0];
         }
 
-        function createParticles() {
-            const container = document.getElementById('particles');
-            for (let i = 0; i < 30; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 15 + 's';
-                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
-                container.appendChild(particle);
+        return;
+    }
+
+    function onlineProgram() {
+        let file = getFileById("online-program");
+        if (file != undefined) {
+            console.log(file.name, file.name.split('.').pop());
+            programRequest("", "online", file.name.split('.').pop(), file.size, onlineProgramResponseHandle);
+        }
+    }
+
+    function onlineProgramResponseHandle(xhr) {
+        return function () {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                updateProgressBar(0);
+                /* Start uploading firmware */
+                let xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function () {
+                    console.log(xhttp.readyState);
+                    if (xhttp.readyState == 4) {
+                        if (xhttp.status == 200) {
+                            alert("程序烧录成功");
+                        } else if (xhttp.status == 0) {
+                            alert("Server closed the connection abruptly!");
+                        } else {
+                            alert(xhttp.status + " Error!\n" + xhttp.responseText);
+                        }
+                    }
+                    disable(false);
+                };
+
+                /* Read update progress */
+                xhttp.upload.addEventListener("progress", function (e) {
+                    if (e.lengthComputable) {
+                        updateProgressBar(Math.round((e.loaded * 100) / e.total));
+                    }
+                }, false);
+
+                xhttp.open("POST", "/api/online-program", true);
+                xhttp.send(getFileById("online-program"));
             }
         }
+    }
 
-        // Init
-        document.documentElement.lang = currentLang;
-        updateLangButtons();
-        createParticles();
-    </script>
+    function getProgramProgress() {
+        var progressXhr = new XMLHttpRequest();
+        progressXhr.onreadystatechange = function () {
+            if (progressXhr.readyState === 4 && progressXhr.status === 200) {
+                var response = JSON.parse(progressXhr.responseText);
+                updateProgressBar(response.progress);
+
+                console.log(response.progress, response.status);
+
+                if (response.status === "idle" && response.progress != 100) {
+                    disable(false);
+                    clearInterval(programProgressTimer);
+                    alert("程序烧录失败");
+                }
+                else if (response.progress === 100) {
+                    clearInterval(programProgressTimer);
+                    disable(false);
+                }
+            }
+        };
+        progressXhr.open("GET", "/api/query?type=program-status", true);
+        progressXhr.send();
+    }
+
+    function disable(status) {
+        document.getElementById("online-program").disabled = status;
+        document.getElementById("online-program-btn").disabled = status;
+        document.getElementById("offline-program").disabled = status;
+        document.getElementById("offline-program-btn").disabled = status;
+        document.getElementById("upload-program").disabled = status;
+        document.getElementById("upload-program-btn").disabled = status;
+        document.getElementById("upload-algorithm").disabled = status;
+        document.getElementById("upload-algorithm-btn").disabled = status;
+    }
+
+    function offlineProgramResponseHandle(xhr) {
+        return function () {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                updateProgressBar(0);
+                programProgressTimer = setInterval(getProgramProgress, 300);
+                disable(true);
+            }
+        }
+    }
+
+    function programRequest(program_path, program_mode, program_format, program_size, response_handle) {
+        var flash_addr = parseInt(document.getElementById("flash-address").value, 16);
+        var ram_addr = parseInt(document.getElementById("ram-address").value, 16);
+        var algorithm = document.getElementById("algorithm").value;
+        var xhr = new XMLHttpRequest();
+
+        if (program_format != "bin" && program_format != "hex") {
+            alert("文件格式错误");
+            return;
+        }
+
+        if (isNaN(flash_addr) && program_format === "bin") {
+            alert("二进制文件必须提供Flash写入地址");
+            return;
+        }
+
+        xhr.open("POST", "/program", true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.onreadystatechange = response_handle(xhr);
+        xhr.send(JSON.stringify({
+            program_mode: program_mode,
+            format: program_format,
+            total_size: program_size,
+            flash_addr: flash_addr,
+            ram_addr: ram_addr,
+            algorithm: algorithm,
+            program: program_path
+        }));
+    }
+
+    function uploadProgram() {
+        let file = getFileById("upload-program");
+        if (file != undefined) {
+            let xhttp = new XMLHttpRequest();
+            disable(true);
+
+            xhttp.onreadystatechange = function () {
+                if (xhttp.readyState == 4) {
+                    if (xhttp.status == 200) {
+                        addOptionToSelect(document.getElementById("offline-program"), file.name);
+                        document.getElementById("offline-program").value = file.name;
+                        alert("程序上传成功");
+                    } else if (xhttp.status == 0) {
+                        alert("Server closed the connection abruptly!");
+                    } else {
+                        alert(xhttp.status + " Error!\n" + xhttp.responseText);
+                    }
+                }
+                disable(false);
+            };
+
+            xhttp.upload.addEventListener("progress", function (e) {
+                if (e.lengthComputable) {
+                    updateProgressBar(Math.round((e.loaded * 100) / e.total));
+                }
+            }, false);
+
+            xhttp.open("POST", "/api/upload?location=program&overwrite=true&name=" + file.name, true);
+            xhttp.send(file);
+        }
+    }
+
+    function uploadAlgorithm() {
+        let file = getFileById("upload-algorithm");
+        if (file != undefined) {
+            disable(true);
+
+            let xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (xhttp.readyState == 4) {
+                    if (xhttp.status == 200) {
+                        alert("算法上传成功");
+                        addOptionToSelect(document.getElementById("algorithm"), file.name);
+                        document.getElementById("algorithm").value = file.name;
+                    } else if (xhttp.status == 0) {
+                        alert("Server closed the connection abruptly!");
+                    } else {
+                        alert(xhttp.status + " Error!\n" + xhttp.responseText);
+                    }
+                }
+                disable(false);
+            };
+
+            xhttp.upload.addEventListener("progress", function (e) {
+                if (e.lengthComputable) {
+                    updateProgressBar(Math.round((e.loaded * 100) / e.total));
+                }
+            }, false);
+
+            xhttp.open("POST", "/api/upload?location=algorithm&overwrite=true&name=" + file.name, true);
+            xhttp.send(file);
+        }
+    }
+
+    function addOptionToSelect(select, name) {
+        var option = document.createElement("option");
+        option.value = name;
+        option.text = name;
+        select.appendChild(option);
+    }
+
+    function updateProgressBar(progress) {
+        var progressBar = document.getElementById("progress");
+        progressBar.value = progress;
+    }
+</script>
