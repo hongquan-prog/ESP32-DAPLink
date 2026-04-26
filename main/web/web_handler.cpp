@@ -25,6 +25,7 @@
 #include "wifi.h"
 #include "nvs_flash.h"
 #include "esp_system.h"
+#include "esp_flash.h"
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -1003,6 +1004,7 @@ esp_err_t web_query_handler(httpd_req_t *req)
     const esp_app_desc_t *app_desc = NULL;
     wifi_ap_record_t ap_info;
     int rssi = 0;
+    uint32_t flash_size = 0;
 
     buf_size = httpd_req_get_url_query_len(req) + 1;
     if (buf_size == 1)
@@ -1047,9 +1049,11 @@ esp_err_t web_query_handler(httpd_req_t *req)
             rssi = ap_info.rssi;
         }
 
+        esp_flash_get_size(NULL, &flash_size);
+        flash_size = flash_size / (1024 * 1024);
         snprintf(status, sizeof(status),
-                 "{\"version\":\"%s\",\"wifi_rssi\":%d,\"chip_model\":\"ESP32-S3\",\"flash_size\":16}",
-                 app_desc->version, rssi);
+                 "{\"version\":\"%s\",\"wifi_rssi\":%d,\"chip_model\":\"%s\",\"flash_size\":%lu}",
+                 app_desc->version, rssi, CONFIG_IDF_TARGET, (unsigned long)flash_size);
         httpd_resp_sendstr(req, status);
     }
     else if (!strcmp("start-addr", type))
