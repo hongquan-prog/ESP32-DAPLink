@@ -280,6 +280,64 @@ static void espidf_cond_destroy(void* handle)
 }
 
 /*****************************************************************************
+ * ESP-IDF Semaphore Implementation
+ *****************************************************************************/
+
+static int espidf_sem_init(void** handle)
+{
+    /* Use counting semaphore to match POSIX semantics (accumulates posts) */
+    SemaphoreHandle_t sem = xSemaphoreCreateCounting(portMAX_DELAY, 0);
+    if (sem == NULL)
+    {
+        return OSAL_ERROR;
+    }
+    *handle = (void*)sem;
+    return OSAL_OK;
+}
+
+static int espidf_sem_wait(void* handle)
+{
+    if (xSemaphoreTake((SemaphoreHandle_t)handle, portMAX_DELAY) == pdTRUE)
+    {
+        return OSAL_OK;
+    }
+    return OSAL_ERROR;
+}
+
+static int espidf_sem_trywait(void* handle)
+{
+    if (xSemaphoreTake((SemaphoreHandle_t)handle, 0) == pdTRUE)
+    {
+        return OSAL_OK;
+    }
+    return OSAL_TIMEOUT;
+}
+
+static int espidf_sem_post(void* handle)
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    if (xPortInIsrContext())
+    {
+        xSemaphoreGiveFromISR((SemaphoreHandle_t)handle, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+    else
+    {
+        xSemaphoreGive((SemaphoreHandle_t)handle);
+    }
+    return OSAL_OK;
+}
+
+static void espidf_sem_destroy(void* handle)
+{
+    if (handle != NULL)
+    {
+        vSemaphoreDelete((SemaphoreHandle_t)handle);
+    }
+}
+
+/*****************************************************************************
  * ESP-IDF Thread Implementation
  *****************************************************************************/
 
@@ -416,6 +474,13 @@ static osal_ops_t espidf_ops = {
     .cond_signal = espidf_cond_signal,
     .cond_broadcast = espidf_cond_broadcast,
     .cond_destroy = espidf_cond_destroy,
+
+    /* Semaphore */
+    .sem_init = espidf_sem_init,
+    .sem_wait = espidf_sem_wait,
+    .sem_trywait = espidf_sem_trywait,
+    .sem_post = espidf_sem_post,
+    .sem_destroy = espidf_sem_destroy,
 
     /* Thread */
     .thread_create = espidf_thread_create,
