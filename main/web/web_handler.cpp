@@ -744,6 +744,9 @@ esp_err_t web_program_handler(httpd_req_t *req)
     httpd_resp_sendstr_chunk(req, i18n_js);
     httpd_resp_sendstr_chunk(req,
                                   "var pollTimer=null,selectedFile=null;"
+                                  "(function(){var sl=localStorage.getItem('lang')||'en';var rl='");
+    httpd_resp_sendstr_chunk(req, is_zh ? "zh" : "en");
+    httpd_resp_sendstr_chunk(req, "';if(sl!==rl){var u=new URL(window.location.href);u.searchParams.set('lang',sl);window.location.replace(u.toString());return;}})();"
                                   "function fmt(s,d){for(var k in d)s=s.replace('{'+k+'}',d[k]);return s;}"
                                   "function addLog(m,t){var l=document.getElementById('log-section');if(!l)return;var e=document.createElement('div');e.className='log-entry '+t;e.innerHTML='['+new Date().toLocaleTimeString()+'] '+m;l.appendChild(e);l.scrollTop=l.scrollHeight;}"
                                   "function updateProgress(p){document.getElementById('progress').value=p;}"
