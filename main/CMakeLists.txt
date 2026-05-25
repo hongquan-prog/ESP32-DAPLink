@@ -6,6 +6,22 @@ set(usb_srcs
         "usb/usb_desc.c")
 endif()
 
+set(main_requires
+        espressif__cjson
+        esp_wifi
+        esp_http_server
+        nvs_flash
+        Program
+        usbipd
+)
+
+# Starting from esp-idf v5.3, UART driver is moved to a separate component.
+if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.3")
+        list(APPEND main_requires esp_driver_uart)
+else()
+        list(APPEND main_requires driver)
+endif()
+
 idf_component_register(SRCS "main.cpp"
                         # Disk
                         "disk/disk.c"
@@ -26,6 +42,8 @@ idf_component_register(SRCS "main.cpp"
                         "programmer/prog_offline.cpp"
                         # WiFi
                         "wifi.c"
+                       REQUIRES ${main_requires}
+                       PRIV_REQUIRES app_update spi_flash
                        INCLUDE_DIRS . usb serial web programmer disk
                        EMBED_FILES "../html/root.html"
                         "../html/favicon.ico"

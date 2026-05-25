@@ -262,7 +262,7 @@ static struct usbip_transport trans = {.priv = &priv,
                                        .stop = tcp_stop,
                                        .destroy = tcp_destroy};
 
-__attribute__((section(".usbip.init"), used)) void default_transport_register(void)
+__attribute__((used)) void default_transport_register(void)
 {
     transport_register("espidf", &trans);
 }

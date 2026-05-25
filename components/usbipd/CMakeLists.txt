@@ -31,8 +31,13 @@ set(COMPONENT_REQUIRES
     "freertos"
     "log"
     "lwip"
-    "newlib"
 )
+
+if("${IDF_VERSION_MAJOR}" VERSION_GREATER_EQUAL "6")
+    list(APPEND COMPONENT_REQUIRES "esp_libc")
+else()
+    list(APPEND COMPONENT_REQUIRES "newlib")
+endif()
 
 set(COMPONENT_PRIV_REQUIRES
     "debug_probe"
