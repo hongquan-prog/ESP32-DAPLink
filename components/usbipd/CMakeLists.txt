@@ -21,6 +21,7 @@ set(COMPONENT_SRCS
     # Platform (ESP-IDF)
     "platform/espidf_transport.c"
     "platform/espidf_os.c"
+    "platform/espidf_desc_override.c"
     # Device drivers
     "usbipd/components/usbipd/src/hid_dap.c"
     "usbipd/components/usbipd/src/bulk_dap.c"
@@ -31,6 +32,7 @@ set(COMPONENT_REQUIRES
     "freertos"
     "log"
     "lwip"
+    "nvs_flash"
 )
 
 if("${IDF_VERSION_MAJOR}" VERSION_GREATER_EQUAL "6")
