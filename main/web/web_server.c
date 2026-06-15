@@ -30,6 +30,8 @@ static const httpd_uri_t s_online_program = {"/api/online-program", HTTP_POST, w
 static const httpd_uri_t s_set_uart_config = {"/api/set-uart-config", HTTP_POST, web_set_uart_config_handler, &s_web_data, false, false, NULL};
 static const httpd_uri_t s_get_wifi_config = {"/settings", HTTP_GET, web_wifi_config_handler, &s_web_data, false, false, NULL};
 static const httpd_uri_t s_post_wifi_set = {"/api/wifi-set", HTTP_POST, web_wifi_settings_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_get_usbip_desc = {"/api/usbip-desc", HTTP_GET, web_usbip_desc_get_handler, &s_web_data, false, false, NULL};
+static const httpd_uri_t s_post_usbip_desc_set = {"/api/usbip-desc-set", HTTP_POST, web_usbip_desc_set_handler, &s_web_data, false, false, NULL};
 
 bool web_server_init(httpd_handle_t *server)
 {
@@ -67,6 +69,8 @@ bool web_server_init(httpd_handle_t *server)
     httpd_register_uri_handler(s_web_data.server, &s_set_uart_config);
     httpd_register_uri_handler(s_web_data.server, &s_get_wifi_config);
     httpd_register_uri_handler(s_web_data.server, &s_post_wifi_set);
+    httpd_register_uri_handler(s_web_data.server, &s_get_usbip_desc);
+    httpd_register_uri_handler(s_web_data.server, &s_post_usbip_desc_set);
     *server = s_web_data.server;
 
     /* Set server handle for state notifications */

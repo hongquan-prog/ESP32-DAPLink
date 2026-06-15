@@ -23,6 +23,7 @@
 #include "hex_program.h"
 #include "serial/serial_manager.h"
 #include "wifi.h"
+#include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_system.h"
 #include "esp_flash.h"
@@ -36,6 +37,10 @@
 #define TAG "web_handler"
 #define WEB_RESOURCE_NUM 5
 #define IS_FILE_EXT(filename, ext) (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
+#define USBIP_NVS_NAMESPACE "usbip"
+#define USBIP_SERIAL_NUMBER_KEY "serial_number"
+#define USBIP_SERIAL_NUMBER_DEFAULT "1234567890"
+#define USBIP_SERIAL_NUMBER_MAX_LEN 31
 
 typedef struct
 {
@@ -1398,6 +1403,162 @@ esp_err_t web_wifi_settings_handler(httpd_req_t *req)
 
     vTaskDelay(pdMS_TO_TICKS(1000));
     esp_restart();
+
+    return ESP_OK;
+}
+
+esp_err_t web_usbip_desc_get_handler(httpd_req_t *req)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err;
+    char serial_number[USBIP_SERIAL_NUMBER_MAX_LEN + 1] = USBIP_SERIAL_NUMBER_DEFAULT;
+    size_t serial_number_len = sizeof(serial_number);
+    cJSON *root = cJSON_CreateObject();
+
+    if (req->method != HTTP_GET)
+    {
+        httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED, "Method not allowed");
+        return ESP_FAIL;
+    }
+
+    if (!root)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "JSON alloc failed");
+        return ESP_FAIL;
+    }
+
+    err = nvs_open(USBIP_NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK)
+    {
+        err = nvs_get_str(nvs_handle, USBIP_SERIAL_NUMBER_KEY, serial_number, &serial_number_len);
+        nvs_close(nvs_handle);
+        if (err != ESP_OK || serial_number[0] == '\0')
+        {
+            strncpy(serial_number, USBIP_SERIAL_NUMBER_DEFAULT, sizeof(serial_number) - 1);
+            serial_number[sizeof(serial_number) - 1] = '\0';
+        }
+    }
+
+    cJSON_AddStringToObject(root, "serial_number", serial_number);
+    cJSON_AddStringToObject(root, "namespace", USBIP_NVS_NAMESPACE);
+    cJSON_AddStringToObject(root, "key", USBIP_SERIAL_NUMBER_KEY);
+
+    char *resp = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (!resp)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "JSON encode failed");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, resp);
+    free(resp);
+    return ESP_OK;
+}
+
+esp_err_t web_usbip_desc_set_handler(httpd_req_t *req)
+{
+    web_data_t *data = (web_data_t *)req->user_ctx;
+    int received = 0;
+    int remaining = req->content_len;
+    int total_received = 0;
+    cJSON *root = NULL;
+    cJSON *serial_number_item = NULL;
+    cJSON *reboot_item = NULL;
+    nvs_handle_t nvs_handle;
+    esp_err_t err;
+    bool reboot = false;
+    size_t sn_len = 0;
+
+    if (req->method != HTTP_POST)
+    {
+        httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED, "Method not allowed");
+        return ESP_FAIL;
+    }
+
+    if (req->content_len <= 0 || req->content_len >= CONFIG_HTTPD_RESP_BUF_SIZE)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Request too large or empty");
+        return ESP_FAIL;
+    }
+
+    while (remaining > 0)
+    {
+        received = httpd_req_recv(req, (char *)data->buf + total_received, remaining);
+        if (received <= 0)
+        {
+            if (received == HTTPD_SOCK_ERR_TIMEOUT)
+            {
+                continue;
+            }
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive data");
+            return ESP_FAIL;
+        }
+        total_received += received;
+        remaining -= received;
+    }
+
+    data->buf[total_received] = '\0';
+    root = cJSON_Parse((char *)data->buf);
+    if (!root)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    serial_number_item = cJSON_GetObjectItem(root, "serial_number");
+    if (!serial_number_item || !cJSON_IsString(serial_number_item) || !serial_number_item->valuestring)
+    {
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing or invalid serial_number");
+        return ESP_FAIL;
+    }
+
+    sn_len = strlen(serial_number_item->valuestring);
+    if (sn_len == 0 || sn_len > USBIP_SERIAL_NUMBER_MAX_LEN)
+    {
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "serial_number length must be 1..31");
+        return ESP_FAIL;
+    }
+
+    reboot_item = cJSON_GetObjectItem(root, "reboot");
+    if (reboot_item && cJSON_IsBool(reboot_item))
+    {
+        reboot = cJSON_IsTrue(reboot_item);
+    }
+
+    err = nvs_open(USBIP_NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "NVS open failed");
+        return ESP_FAIL;
+    }
+
+    err = nvs_set_str(nvs_handle, USBIP_SERIAL_NUMBER_KEY, serial_number_item->valuestring);
+    if (err == ESP_OK)
+    {
+        err = nvs_commit(nvs_handle);
+    }
+    nvs_close(nvs_handle);
+    cJSON_Delete(root);
+
+    if (err != ESP_OK)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save serial_number");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, reboot ? "{\"status\":\"ok\",\"reboot\":true}" : "{\"status\":\"ok\",\"reboot_required\":true}");
+
+    if (reboot)
+    {
+        vTaskDelay(pdMS_TO_TICKS(300));
+        esp_restart();
+    }
 
     return ESP_OK;
 }
