@@ -12,6 +12,7 @@
 
 #include "tinyusb.h"
 #include "sdkconfig.h"
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -88,6 +89,14 @@ extern "C"
      * @return Pointer to configuration descriptor
      */
     const uint8_t *get_configuration_descriptor(bool enable_msc);
+
+    /**
+     * @brief Read ASCII serial string from NVS key usbip/serial_number
+     * @param serial Output buffer
+     * @param serial_size Output buffer size
+     * @return 1 when a non-empty serial is loaded, otherwise 0
+     */
+    int usb_desc_get_serial_ascii(char *serial, size_t serial_size);
 #ifdef CONFIG_BULK_DAPLINK
     /**
      * @brief Get the Microsoft OS 2.0 descriptor

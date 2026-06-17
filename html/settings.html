@@ -87,6 +87,10 @@
             box-shadow: 0 8px 32px rgba(0, 245, 255, 0.1);
         }
 
+        .form-card + .form-card {
+            margin-top: 18px;
+        }
+
         .form-group {
             margin-bottom: 20px;
             text-align: left;
@@ -193,6 +197,13 @@
         .back-link:hover {
             color: rgba(0, 245, 255, 1);
         }
+
+        .hint {
+            margin-top: 8px;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 0.85em;
+            text-align: left;
+        }
     </style>
 </head>
 
@@ -216,6 +227,18 @@
             <button class="btn-reboot" id="btn-save" onclick="saveConfig()" data-i18n="settings.save">Save & Reboot</button>
             <div class="message" id="message"></div>
         </div>
+
+        <div class="form-card">
+            <div class="form-group">
+                <label for="serial-number" data-i18n="usbip.serial_number">USBIP Serial Number</label>
+                <input type="text" id="serial-number" placeholder="" maxlength="31">
+                <div class="hint" data-i18n="usbip.hint">Save then reboot to apply USB descriptor change.</div>
+            </div>
+            <button class="btn-reboot" id="btn-usbip-save" onclick="saveUsbipConfig(false)" data-i18n="usbip.save">Save USBIP Config</button>
+            <button class="btn-reboot" id="btn-usbip-save-reboot" onclick="saveUsbipConfig(true)" data-i18n="usbip.save_reboot" style="margin-top: 10px;">Save & Reboot</button>
+            <div class="message" id="usbip-message"></div>
+        </div>
+
         <a class="back-link" href="/" data-i18n="settings.back">Back to Home</a>
     </div>
 
@@ -235,7 +258,18 @@
                 'settings.failed': 'Save failed: ',
                 'settings.error': 'Request failed, check network',
                 'settings.ssid_placeholder': 'Enter WiFi name',
-                'settings.password_placeholder': 'Enter password (optional)'
+                'settings.password_placeholder': 'Enter password (optional)',
+                'usbip.serial_number': 'DAP Link Serial Number',
+                'usbip.hint': 'Save then reboot to apply USB descriptor change.',
+                'usbip.save': 'Save USBIP Config',
+                'usbip.save_reboot': 'Save & Reboot',
+                'usbip.sn_placeholder': 'Enter serial (1-31 chars)',
+                'usbip.enter_sn': 'Please enter DAP serial number',
+                'usbip.saving': 'Saving...',
+                'usbip.success': 'USBIP config saved',
+                'usbip.rebooting': 'Saved, rebooting...',
+                'usbip.failed': 'USBIP save failed: ',
+                'usbip.error': 'USBIP request failed'
             },
             zh: {
                 'settings.title': 'WiFi 设置',
@@ -250,7 +284,18 @@
                 'settings.failed': '保存失败: ',
                 'settings.error': '请求失败，请检查网络',
                 'settings.ssid_placeholder': '请输入 WiFi 名称',
-                'settings.password_placeholder': '请输入密码（可为空）'
+                'settings.password_placeholder': '请输入密码（可为空）',
+                'usbip.serial_number': 'DAP Link 序列号',
+                'usbip.hint': '保存后需要重启设备，新的 USB 描述符才会生效。',
+                'usbip.save': '保存 USBIP 配置',
+                'usbip.save_reboot': '保存并重启',
+                'usbip.sn_placeholder': '请输入序列号（1-31 字符）',
+                'usbip.enter_sn': '请输入 USBIP 序列号',
+                'usbip.saving': '保存中...',
+                'usbip.success': 'USBIP 配置已保存',
+                'usbip.rebooting': '已保存，设备重启中...',
+                'usbip.failed': 'USBIP 保存失败: ',
+                'usbip.error': 'USBIP 请求失败'
             }
         };
 
@@ -273,6 +318,7 @@
             });
             document.getElementById('ssid').placeholder = translations[currentLang]['settings.ssid_placeholder'];
             document.getElementById('password').placeholder = translations[currentLang]['settings.password_placeholder'];
+            document.getElementById('serial-number').placeholder = translations[currentLang]['usbip.sn_placeholder'];
         }
 
         function updateLangButtons() {
@@ -282,6 +328,13 @@
 
         function showMessage(text, type) {
             var msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = 'message ' + type;
+            msg.style.display = 'block';
+        }
+
+        function showUsbipMessage(text, type) {
+            var msg = document.getElementById('usbip-message');
             msg.textContent = text;
             msg.className = 'message ' + type;
             msg.style.display = 'block';
@@ -327,10 +380,72 @@
             }));
         }
 
+        function loadUsbipConfig() {
+            fetch('/api/usbip-desc')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d && d.serial_number) {
+                        document.getElementById('serial-number').value = d.serial_number;
+                    }
+                })
+                .catch(function() {});
+        }
+
+        function saveUsbipConfig(reboot) {
+            var serialNumber = document.getElementById('serial-number').value.trim();
+            var saveBtn = document.getElementById('btn-usbip-save');
+            var rebootBtn = document.getElementById('btn-usbip-save-reboot');
+
+            if (!serialNumber) {
+                showUsbipMessage(translations[currentLang]['usbip.enter_sn'], 'error');
+                return;
+            }
+
+            saveBtn.disabled = true;
+            rebootBtn.disabled = true;
+            if (reboot) {
+                rebootBtn.textContent = translations[currentLang]['usbip.saving'];
+            } else {
+                saveBtn.textContent = translations[currentLang]['usbip.saving'];
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/usbip-desc-set', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    showUsbipMessage(reboot ? translations[currentLang]['usbip.rebooting'] : translations[currentLang]['usbip.success'], 'success');
+                    if (reboot) {
+                        rebootBtn.textContent = translations[currentLang]['usbip.rebooting'];
+                    }
+                } else {
+                    showUsbipMessage(translations[currentLang]['usbip.failed'] + xhr.responseText, 'error');
+                    saveBtn.disabled = false;
+                    rebootBtn.disabled = false;
+                    saveBtn.textContent = translations[currentLang]['usbip.save'];
+                    rebootBtn.textContent = translations[currentLang]['usbip.save_reboot'];
+                }
+            };
+
+            xhr.onerror = function() {
+                showUsbipMessage(translations[currentLang]['usbip.error'], 'error');
+                saveBtn.disabled = false;
+                rebootBtn.disabled = false;
+                saveBtn.textContent = translations[currentLang]['usbip.save'];
+                rebootBtn.textContent = translations[currentLang]['usbip.save_reboot'];
+            };
+
+            xhr.send(JSON.stringify({
+                serial_number: serialNumber,
+                reboot: !!reboot
+            }));
+        }
+
         // Init
         document.documentElement.lang = currentLang;
         applyTranslations();
         updateLangButtons();
+        loadUsbipConfig();
     </script>
 </body>
 

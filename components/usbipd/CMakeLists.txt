@@ -2,6 +2,10 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "usbipd/components/usbipd/include"
 )
 
+set(COMPONENT_PRIV_INCLUDEDIRS
+    "../../main/usb"
+)
+
 set(COMPONENT_SRCS 
     # Server core
     "usbipd/components/usbipd/src/server/usbip_conn.c"
@@ -21,7 +25,9 @@ set(COMPONENT_SRCS
     # Platform (ESP-IDF)
     "platform/espidf_transport.c"
     "platform/espidf_os.c"
+    "platform/espidf_desc_override.c"
     # Device drivers
+    "usbipd/components/usbipd/src/usbip_util.c"
     "usbipd/components/usbipd/src/hid_dap.c"
     "usbipd/components/usbipd/src/bulk_dap.c"
 )
@@ -31,6 +37,7 @@ set(COMPONENT_REQUIRES
     "freertos"
     "log"
     "lwip"
+    "nvs_flash"
 )
 
 if("${IDF_VERSION_MAJOR}" VERSION_GREATER_EQUAL "6")
@@ -41,6 +48,7 @@ endif()
 
 set(COMPONENT_PRIV_REQUIRES
     "debug_probe"
+    "espressif__esp_tinyusb"
 )
 
 register_component()

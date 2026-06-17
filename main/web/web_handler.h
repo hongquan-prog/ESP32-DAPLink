@@ -44,6 +44,8 @@ extern "C" {
     esp_err_t web_set_uart_config_handler(httpd_req_t *req);
     esp_err_t web_wifi_config_handler(httpd_req_t *req);
     esp_err_t web_wifi_settings_handler(httpd_req_t *req);
+    esp_err_t web_usbip_desc_get_handler(httpd_req_t *req);
+    esp_err_t web_usbip_desc_set_handler(httpd_req_t *req);
 
 #ifdef __cplusplus
 }

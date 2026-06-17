@@ -1,5 +1,56 @@
 #include "usb/usb_desc.h"
 #include "tusb_cdc_acm.h"
+#include "nvs.h"
+
+#define USBIP_NVS_NAMESPACE "usbip"
+#define USBIP_SERIAL_NUMBER_KEY   "serial_number"
+#define USBIP_SERIAL_NUMBER_MAX_LEN 31
+
+int usb_desc_get_serial_ascii(char *serial, size_t serial_size)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err;
+    size_t required_len;
+
+    if (!serial || serial_size < 2)
+    {
+        return 0;
+    }
+
+    required_len = serial_size;
+    err = nvs_open(USBIP_NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        return 0;
+    }
+
+    err = nvs_get_str(nvs_handle, USBIP_SERIAL_NUMBER_KEY, serial, &required_len);
+    nvs_close(nvs_handle);
+    if (err != ESP_OK)
+    {
+        return 0;
+    }
+
+    serial[serial_size - 1] = '\0';
+    return serial[0] != '\0';
+}
+
+static const char* get_runtime_serial_string(void)
+{
+    static char s_serial[USBIP_SERIAL_NUMBER_MAX_LEN + 1] = {0};
+    static int s_initialized = 0;
+    if (s_initialized)
+    {
+        return s_serial[0] ? s_serial : CONFIG_TINYUSB_DESC_SERIAL_STRING;
+    }
+
+    s_initialized = 1;
+    if (!usb_desc_get_serial_ascii(s_serial, sizeof(s_serial)))
+    {
+        return CONFIG_TINYUSB_DESC_SERIAL_STRING;
+    }
+    return s_serial;
+}
 
 #define MS_OS_20_DESC_LEN 0xB2
 #define BOS_TOTAL_LEN (TUD_BOS_DESC_LEN + TUD_BOS_WEBUSB_DESC_LEN + TUD_BOS_MICROSOFT_OS_DESC_LEN)
@@ -137,7 +188,7 @@ const char **get_string_descriptor(bool enable_msc)
     descriptor.array[STRID_LANGID] = desc_string_language;
     descriptor.array[STRID_MANUFACTURER] = CONFIG_TINYUSB_DESC_MANUFACTURER_STRING;
     descriptor.array[STRID_PRODUCT] = CONFIG_TINYUSB_DESC_PRODUCT_STRING;
-    descriptor.array[STRID_SERIAL_NUMBER] = CONFIG_TINYUSB_DESC_SERIAL_STRING;
+    descriptor.array[STRID_SERIAL_NUMBER] = get_runtime_serial_string();
     descriptor.array[STRID_CDC_INTERFACE] = CONFIG_TINYUSB_DESC_CDC_STRING;
     descriptor.array[STRID_DAPLINK_INTERFACE] = CONFIG_DAPLINK_DESC_STRING;
     descriptor.string_num = STRID_NUM - 1;
